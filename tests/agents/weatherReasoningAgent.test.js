@@ -2,12 +2,12 @@
 const openMeteoTool = require('../../src/services/mcp-tools/openMeteoTool');
 const nasaPowerTool = require('../../src/services/mcp-tools/nasaPowerTool');
 const WeatherSnapshot = require('../../src/models/WeatherSnapshot');
-const { ChatOpenAI } = require('@langchain/openai');
+const { completeJson } = require('../../src/services/llm/xaiClient');
 
 jest.mock('../../src/services/mcp-tools/openMeteoTool');
 jest.mock('../../src/services/mcp-tools/nasaPowerTool');
 jest.mock('../../src/models/WeatherSnapshot');
-jest.mock('@langchain/openai');
+jest.mock('../../src/services/llm/xaiClient');
 
 const { runWeatherReasoningAgent } = require('../../src/services/agents/weatherReasoningAgent');
 
@@ -49,10 +49,7 @@ describe('Agent: weatherReasoningAgent', () => {
       available: true,
     });
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(sampleHourly),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(sampleHourly);
 
     WeatherSnapshot.create.mockResolvedValue({
       _id: 'snapshot-1',
@@ -75,7 +72,7 @@ describe('Agent: weatherReasoningAgent', () => {
     expect(nasaPowerTool.handler).toHaveBeenCalledWith(
       expect.objectContaining({ latitude: 27.53, longitude: 71.91, hours: 24, plantType: 'solar' })
     );
-    expect(mockInvoke).toHaveBeenCalled();
+    expect(completeJson).toHaveBeenCalled();
     expect(WeatherSnapshot.create).toHaveBeenCalledWith(
       expect.objectContaining({
         plantId: mockPlant._id,
@@ -93,8 +90,7 @@ describe('Agent: weatherReasoningAgent', () => {
     });
     nasaPowerTool.handler.mockResolvedValue({ available: false, hourly: null });
 
-    const mockInvoke = jest.fn().mockRejectedValue(new Error('LLM Rate Limit'));
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockRejectedValue(new Error('LLM Rate Limit'));
 
     WeatherSnapshot.create.mockResolvedValue({
       _id: 'snapshot-fallback',

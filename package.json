@@ -14,9 +14,6 @@
     "test:all": "node test_executor.js"
   },
   "dependencies": {
-    "@langchain/core": "^0.2.0",
-    "@langchain/langgraph": "^0.0.34",
-    "@langchain/openai": "^0.2.0",
     "axios": "^1.7.0",
     "bcrypt": "^5.1.1",
     "cors": "^2.8.5",
@@ -26,7 +23,6 @@
     "express-rate-limit": "^7.3.1",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
-    "langchain": "^0.2.0",
     "mongoose": "^8.4.1",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
@@ -42,6 +38,8 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"]
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ]
   }
 }

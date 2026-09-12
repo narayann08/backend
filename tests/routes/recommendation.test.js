@@ -13,16 +13,10 @@ jest.mock('../../src/models/Recommendation');
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Recommendation = require('../../src/models/Recommendation');
 const app = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'operator@fluxcast.io', role: 'grid_operator', name: 'Operator' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Recommendation & Explain Routes', () => {
   const plantId = new mongoose.Types.ObjectId();
@@ -39,11 +33,6 @@ describe('Recommendation & Explain Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('GET /v1/plants/:plantId/recommendation', () => {
-    it('returns 401 without auth', async () => {
-      const res = await request(app).get(`/v1/plants/${plantId}/recommendation`);
-      expect(res.status).toBe(401);
-    });
-
     it('returns 404 if no recommendation found', async () => {
       Recommendation.findOne.mockReturnValue({
         sort: () => ({ lean: () => null }),
@@ -51,7 +40,7 @@ describe('Recommendation & Explain Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/recommendation`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(404);
     });
@@ -63,7 +52,7 @@ describe('Recommendation & Explain Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/recommendation`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.action).toBe('charge_battery');
@@ -79,7 +68,7 @@ describe('Recommendation & Explain Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/explain`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(404);
     });
@@ -91,7 +80,7 @@ describe('Recommendation & Explain Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/explain`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.summary).toContain('Solar peak generation');

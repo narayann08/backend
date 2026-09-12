@@ -14,16 +14,10 @@ jest.mock('../../src/models/Telemetry');
 
 const request   = require('supertest');
 const mongoose  = require('mongoose');
-const jwt       = require('jsonwebtoken');
 const Plant     = require('../../src/models/Plant');
 const app       = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'user1', email: 'admin@test.com', role: 'admin', name: 'Admin' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'admin' };
 
 const mockPlant = {
   _id:               new mongoose.Types.ObjectId(),
@@ -39,9 +33,13 @@ describe('Plant Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('GET /v1/plants', () => {
-    it('returns 401 without token', async () => {
+    it('is reachable without any auth header (no recurring token check)', async () => {
+      Plant.find.mockReturnValue({
+        skip: () => ({ limit: () => ({ lean: () => [mockPlant] }) }),
+      });
+      Plant.countDocuments.mockResolvedValue(1);
       const res = await request(app).get('/v1/plants');
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
 
     it('returns paginated list of plants', async () => {
@@ -49,7 +47,7 @@ describe('Plant Routes', () => {
         skip: () => ({ limit: () => ({ lean: () => [mockPlant] }) }),
       });
       Plant.countDocuments.mockResolvedValue(1);
-      const res = await request(app).get('/v1/plants').set('Authorization', auth);
+      const res = await request(app).get('/v1/plants').set(auth);
       expect(res.status).toBe(200);
       expect(res.body.total).toBe(1);
       expect(Array.isArray(res.body.plants)).toBe(true);
@@ -61,7 +59,7 @@ describe('Plant Routes', () => {
       Plant.create.mockResolvedValue({ ...mockPlant, toObject: () => mockPlant });
       const res = await request(app)
         .post('/v1/plants')
-        .set('Authorization', auth)
+        .set(auth)
         .send({ name: 'Test Solar Farm', type: 'solar', latitude: 22.5, longitude: 70.1, capacityMW: 10 });
       expect(res.status).toBe(201);
     });
@@ -72,7 +70,7 @@ describe('Plant Routes', () => {
       Plant.findById.mockReturnValue({ lean: () => null });
       const res = await request(app)
         .get(`/v1/plants/${new mongoose.Types.ObjectId()}`)
-        .set('Authorization', auth);
+        .set(auth);
       expect(res.status).toBe(404);
     });
 
@@ -80,7 +78,7 @@ describe('Plant Routes', () => {
       Plant.findById.mockReturnValue({ lean: () => mockPlant });
       const res = await request(app)
         .get(`/v1/plants/${mockPlant._id}`)
-        .set('Authorization', auth);
+        .set(auth);
       expect(res.status).toBe(200);
       expect(res.body.name).toBe('Test Solar Farm');
     });
@@ -88,15 +86,18 @@ describe('Plant Routes', () => {
 
   describe('DELETE /v1/plants/:plantId', () => {
     it('returns 403 for grid_operator role', async () => {
-      const opToken = jwt.sign(
-        { id: 'u2', email: 'op@test.com', role: 'grid_operator', name: 'Op' },
-        'test_secret_key',
-        { expiresIn: '1h' }
-      );
       const res = await request(app)
         .delete(`/v1/plants/${mockPlant._id}`)
-        .set('Authorization', `Bearer ${opToken}`);
+        .set({ 'x-user-role': 'grid_operator' });
       expect(res.status).toBe(403);
+    });
+
+    it('allows deletion for admin role', async () => {
+      Plant.findByIdAndDelete.mockResolvedValue(mockPlant);
+      const res = await request(app)
+        .delete(`/v1/plants/${mockPlant._id}`)
+        .set(auth);
+      expect(res.status).toBe(204);
     });
   });
 });

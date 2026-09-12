@@ -1,7 +1,5 @@
 'use strict';
-const { ChatOpenAI } = require('@langchain/openai');
-const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const env = require('../../config/env');
+const { completeJson } = require('../llm/xaiClient');
 const logger = require('../../utils/logger');
 const telemetryTool = require('../mcp-tools/telemetryTool');
 const ragRetrieverTool = require('../mcp-tools/ragRetrieverTool');
@@ -46,13 +44,6 @@ async function runForecastingAgent(state) {
   }
 
   // ── Step 3: LLM-powered forecast generation ──────────────────────────────
-  const llm = new ChatOpenAI({
-    openAIApiKey: env.XAI_API_KEY,
-    modelName:    env.XAI_MODEL,
-    maxTokens:    8192,
-    configuration: { baseURL: env.XAI_BASE_URL },
-  });
-
   const systemPrompt = `You are the Forecasting Agent for FluxCast, a renewable energy AI platform.
 Generate an hourly generation forecast given weather data and plant telemetry.
 
@@ -96,8 +87,7 @@ Output ONLY valid JSON — no markdown, no explanation:
 
   let forecastData;
   try {
-    const response = await llm.invoke([new SystemMessage(systemPrompt), new HumanMessage(userMessage)]);
-    forecastData = JSON.parse(response.content);
+    forecastData = await completeJson({ system: systemPrompt, user: userMessage, maxTokens: 8192 });
     logger.info(`[ForecastAgent] LLM produced ${forecastData.points?.length} forecast points`);
   } catch (err) {
     logger.error('[ForecastAgent] LLM forecast failed — using flat 50% fallback:', err.message);

@@ -13,16 +13,10 @@ jest.mock('../../src/models/Alert');
 
 const request  = require('supertest');
 const mongoose = require('mongoose');
-const jwt      = require('jsonwebtoken');
 const Alert    = require('../../src/models/Alert');
 const app      = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'op@test.com', role: 'grid_operator', name: 'Op' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Alert Routes', () => {
   const mockAlert = {
@@ -40,15 +34,16 @@ describe('Alert Routes', () => {
   describe('GET /v1/alerts', () => {
     it('returns list of alerts', async () => {
       Alert.find.mockReturnValue({ sort: () => ({ lean: () => [mockAlert] }) });
-      const res = await request(app).get('/v1/alerts').set('Authorization', auth);
+      const res = await request(app).get('/v1/alerts').set(auth);
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
       expect(res.body[0].severity).toBe('high');
     });
 
-    it('returns 401 without token', async () => {
+    it('is reachable without any auth header (no recurring token check)', async () => {
+      Alert.find.mockReturnValue({ sort: () => ({ lean: () => [mockAlert] }) });
       const res = await request(app).get('/v1/alerts');
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
   });
 
@@ -59,7 +54,7 @@ describe('Alert Routes', () => {
       });
       const res = await request(app)
         .post(`/v1/alerts/${mockAlert._id}/acknowledge`)
-        .set('Authorization', auth);
+        .set(auth);
       expect(res.status).toBe(200);
       expect(res.body.acknowledged).toBe(true);
     });
@@ -68,7 +63,7 @@ describe('Alert Routes', () => {
       Alert.findByIdAndUpdate.mockReturnValue({ lean: () => null });
       const res = await request(app)
         .post(`/v1/alerts/${new mongoose.Types.ObjectId()}/acknowledge`)
-        .set('Authorization', auth);
+        .set(auth);
       expect(res.status).toBe(404);
     });
   });

@@ -16,7 +16,7 @@ const env = {
 
   XAI_API_KEY:   process.env.XAI_API_KEY  || '',
   XAI_BASE_URL:  process.env.XAI_BASE_URL || 'https://api.x.ai/v1',
-  XAI_MODEL:     process.env.XAI_MODEL    || 'grok-beta',
+  XAI_MODEL:     process.env.XAI_MODEL    || 'grok-4.3',
 
   OPEN_METEO_BASE_URL:
     process.env.OPEN_METEO_BASE_URL ||

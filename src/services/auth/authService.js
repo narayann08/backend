@@ -30,31 +30,52 @@ async function register(userData) {
 }
 
 /**
- * Authenticate user with email/password and return a JWT.
- * @param {string} email
- * @param {string} password
- * @returns {Promise<{token: string, user: object}>}
+ * Predefined roles selectable from the startup role-selection screen. Each
+ * key is a login endpoint slug that maps to one shared user document already
+ * stored in the users collection — no credentials, no new accounts.
  */
-async function login(email, password) {
-  const user = await User.findOne({ email });
+const ROLE_LOGIN_MAP = {
+  'system-admin':       { role: 'admin',         label: 'System Admin' },
+  'lead-grid-operator': { role: 'grid_operator', label: 'Lead Grid Operator' },
+  'utility-admin':      { role: 'utility_admin', label: 'Utility Admin' },
+};
+
+/**
+ * List the predefined roles available for one-click login.
+ * @returns {Array<{key: string, role: string, label: string}>}
+ */
+function listRoles() {
+  return Object.entries(ROLE_LOGIN_MAP).map(([key, cfg]) => ({
+    key,
+    role: cfg.role,
+    label: cfg.label,
+  }));
+}
+
+/**
+ * One-click login: no credentials taken. Fetches the single stored user for
+ * the given predefined role.
+ * @param {string} roleKey - one of the ROLE_LOGIN_MAP keys
+ * @returns {Promise<{user: object}>}
+ */
+async function loginWithRole(roleKey) {
+  const config = ROLE_LOGIN_MAP[roleKey];
+  if (!config) {
+    const err = new Error(`Unknown login role '${roleKey}'`);
+    err.status = 400;
+    throw err;
+  }
+
+  const user = await User.findOne({ role: config.role });
   if (!user) {
-    const err = new Error('Invalid credentials');
-    err.status = 401;
+    const err = new Error(
+      `No stored user found for role '${config.role}'. Seed the users collection first.`
+    );
+    err.status = 404;
     throw err;
   }
-
-  const match = await user.comparePassword(password);
-  if (!match) {
-    const err = new Error('Invalid credentials');
-    err.status = 401;
-    throw err;
-  }
-
-  const payload = { id: user._id, email: user.email, role: user.role, name: user.name };
-  const token = jwt.sign(payload, env.JWT_SECRET, { expiresIn: env.JWT_EXPIRES_IN });
 
   return {
-    token,
     user: { id: user._id, name: user.name, email: user.email, role: user.role },
   };
 }
@@ -131,4 +152,12 @@ async function resetPassword(resetToken, newPassword) {
   return { message: 'Password reset successful' };
 }
 
-module.exports = { register, login, getProfile, forgotPassword, resetPassword };
+module.exports = {
+  register,
+  getProfile,
+  forgotPassword,
+  resetPassword,
+  listRoles,
+  loginWithRole,
+  ROLE_LOGIN_MAP,
+};

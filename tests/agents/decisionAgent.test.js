@@ -2,12 +2,12 @@
 const batteryStatusTool = require('../../src/services/mcp-tools/batteryStatusTool');
 const demandDataTool = require('../../src/services/mcp-tools/demandDataTool');
 const Recommendation = require('../../src/models/Recommendation');
-const { ChatOpenAI } = require('@langchain/openai');
+const { completeJson } = require('../../src/services/llm/xaiClient');
 
 jest.mock('../../src/services/mcp-tools/batteryStatusTool');
 jest.mock('../../src/services/mcp-tools/demandDataTool');
 jest.mock('../../src/models/Recommendation');
-jest.mock('@langchain/openai');
+jest.mock('../../src/services/llm/xaiClient');
 
 const { runDecisionAgent } = require('../../src/services/agents/decisionAgent');
 
@@ -40,10 +40,7 @@ describe('Agent: decisionAgent', () => {
       constraintsConsidered: ['battery_capacity', 'demand_forecast'],
     };
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(mockRecData),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(mockRecData);
 
     Recommendation.create.mockResolvedValue({
       _id: 'rec-001',
@@ -79,10 +76,7 @@ describe('Agent: decisionAgent', () => {
       constraintsConsidered: ['battery_capacity'],
     };
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(mockRecData),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(mockRecData);
 
     const state = {
       plant: mockPlant,
@@ -101,8 +95,7 @@ describe('Agent: decisionAgent', () => {
     batteryStatusTool.handler.mockResolvedValue({});
     demandDataTool.handler.mockResolvedValue({});
 
-    const mockInvoke = jest.fn().mockRejectedValue(new Error('LLM Parsing Error'));
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockRejectedValue(new Error('LLM Parsing Error'));
 
     Recommendation.create.mockImplementation(args => Promise.resolve({
       ...args,

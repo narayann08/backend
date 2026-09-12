@@ -2,11 +2,11 @@
 const express = require('express');
 const router = express.Router();
 const rateLimit = require('express-rate-limit');
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { identifyUser } = require('../middleware/authMiddleware');
 const Plant = require('../models/Plant');
 const { runForecastWorkflow } = require('../services/graph/forecastWorkflow');
 
-router.use(authMiddleware);
+router.use(identifyUser);
 
 // Strict rate limit — simulation triggers LLM calls and external API hits
 const simulateLimiter = rateLimit({

@@ -1,10 +1,10 @@
 'use strict';
 const express = require('express');
 const router = express.Router();
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { identifyUser } = require('../middleware/authMiddleware');
 const Alert = require('../models/Alert');
 
-router.use(authMiddleware);
+router.use(identifyUser);
 
 /**
  * GET /v1/alerts

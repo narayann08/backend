@@ -2,12 +2,12 @@
 const telemetryTool = require('../../src/services/mcp-tools/telemetryTool');
 const ragRetrieverTool = require('../../src/services/mcp-tools/ragRetrieverTool');
 const ForecastResult = require('../../src/models/ForecastResult');
-const { ChatOpenAI } = require('@langchain/openai');
+const { completeJson } = require('../../src/services/llm/xaiClient');
 
 jest.mock('../../src/services/mcp-tools/telemetryTool');
 jest.mock('../../src/services/mcp-tools/ragRetrieverTool');
 jest.mock('../../src/models/ForecastResult');
-jest.mock('@langchain/openai');
+jest.mock('../../src/services/llm/xaiClient');
 
 const { runForecastingAgent } = require('../../src/services/agents/forecastingAgent');
 
@@ -55,10 +55,7 @@ describe('Agent: forecastingAgent', () => {
       riskWindows: [{ start: '2026-09-12T12:00:00Z', end: '2026-09-12T15:00:00Z', type: 'over_generation' }],
     };
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(mockForecastData),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(mockForecastData);
 
     ForecastResult.create.mockResolvedValue({
       _id: 'forecast-doc-1',
@@ -91,10 +88,7 @@ describe('Agent: forecastingAgent', () => {
     telemetryTool.handler.mockResolvedValue([]);
     ragRetrieverTool.handler.mockResolvedValue({ results: [{ score: 0.92, generationMW: 80 }] });
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify({ points: [{ expectedMW: 60 }], riskWindows: [] }),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue({ points: [{ expectedMW: 60 }], riskWindows: [] });
 
     ForecastResult.create.mockResolvedValue({
       _id: 'forecast-rag',
@@ -116,8 +110,7 @@ describe('Agent: forecastingAgent', () => {
 
   it('falls back to flat 50% capacity curve when LLM call errors', async () => {
     telemetryTool.handler.mockResolvedValue([]);
-    const mockInvoke = jest.fn().mockRejectedValue(new Error('Grok API Timeout'));
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockRejectedValue(new Error('Grok API Timeout'));
 
     ForecastResult.create.mockImplementation(args => Promise.resolve({
       ...args,

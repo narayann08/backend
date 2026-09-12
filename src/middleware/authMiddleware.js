@@ -1,23 +1,24 @@
 'use strict';
-const jwt = require('jsonwebtoken');
-const env = require('../config/env');
+
+const KNOWN_ROLES = ['admin', 'grid_operator', 'utility_admin', 'plant_owner'];
 
 /**
- * Verifies Bearer JWT on every protected route.
- * Attaches decoded payload to req.user.
+ * Identifies the active user from the `x-user-role` / `x-user-id` /
+ * `x-user-email` headers set by the client after the one-click role login.
+ * There is no token to verify and no recurring auth check — this never
+ * rejects a request, it only makes req.user available to handlers (like
+ * requireRole) that care about the caller's role.
  */
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: true, message: 'No token provided' });
+function identifyUser(req, res, next) {
+  const role = req.headers['x-user-role'];
+  if (role && KNOWN_ROLES.includes(role)) {
+    req.user = {
+      id: req.headers['x-user-id'],
+      email: req.headers['x-user-email'],
+      role,
+    };
   }
-  const token = authHeader.split(' ')[1];
-  try {
-    req.user = jwt.verify(token, env.JWT_SECRET);
-    next();
-  } catch (err) {
-    return res.status(401).json({ error: true, message: 'Invalid or expired token' });
-  }
+  next();
 }
 
 /**
@@ -33,4 +34,4 @@ function requireRole(...roles) {
   };
 }
 
-module.exports = { authMiddleware, requireRole };
+module.exports = { identifyUser, requireRole };

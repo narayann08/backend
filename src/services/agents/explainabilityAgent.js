@@ -1,7 +1,5 @@
 'use strict';
-const { ChatOpenAI } = require('@langchain/openai');
-const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const env = require('../../config/env');
+const { completeJson } = require('../llm/xaiClient');
 const logger = require('../../utils/logger');
 const notificationTool = require('../mcp-tools/notificationTool');
 
@@ -23,13 +21,6 @@ async function runExplainabilityAgent(state) {
   logger.info(`[ExplainAgent] Starting for plant ${plant._id}`);
 
   // ── Step 1: Generate plain-language explanation ───────────────────────────
-  const llm = new ChatOpenAI({
-    openAIApiKey: env.XAI_API_KEY,
-    modelName:    env.XAI_MODEL,
-    maxTokens:    1024,
-    configuration: { baseURL: env.XAI_BASE_URL },
-  });
-
   const systemPrompt = `You are the Explainability Agent for FluxCast, a renewable energy grid platform.
 Produce a short, clear, jargon-free explanation of why the generation forecast and recommendation look the way they do.
 This will be shown to grid operators on a dashboard — they are experienced but not data scientists.
@@ -50,8 +41,7 @@ Output ONLY valid JSON — no markdown, no extra text:
 
   let explanation;
   try {
-    const response = await llm.invoke([new SystemMessage(systemPrompt), new HumanMessage(userMessage)]);
-    explanation = JSON.parse(response.content);
+    explanation = await completeJson({ system: systemPrompt, user: userMessage, maxTokens: 1024 });
     logger.info('[ExplainAgent] LLM explanation generated');
   } catch (err) {
     logger.warn('[ExplainAgent] LLM explanation failed — using fallback:', err.message);

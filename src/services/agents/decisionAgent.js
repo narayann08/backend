@@ -1,7 +1,5 @@
 'use strict';
-const { ChatOpenAI } = require('@langchain/openai');
-const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const env = require('../../config/env');
+const { completeJson } = require('../llm/xaiClient');
 const logger = require('../../utils/logger');
 const batteryStatusTool = require('../mcp-tools/batteryStatusTool');
 const demandDataTool = require('../mcp-tools/demandDataTool');
@@ -29,13 +27,6 @@ async function runDecisionAgent(state) {
   ]);
 
   // ── Step 2: LLM-powered decision ─────────────────────────────────────────
-  const llm = new ChatOpenAI({
-    openAIApiKey: env.XAI_API_KEY,
-    modelName:    env.XAI_MODEL,
-    maxTokens:    2048,
-    configuration: { baseURL: env.XAI_BASE_URL },
-  });
-
   const systemPrompt = `You are the Decision Agent for FluxCast, a renewable energy grid decision support platform.
 Given a generation forecast, battery status, and demand data, recommend the optimal grid action.
 
@@ -69,8 +60,7 @@ Output ONLY valid JSON — no markdown, no explanation:
 
   let recData;
   try {
-    const response = await llm.invoke([new SystemMessage(systemPrompt), new HumanMessage(userMessage)]);
-    recData = JSON.parse(response.content);
+    recData = await completeJson({ system: systemPrompt, user: userMessage, maxTokens: 2048 });
     logger.info(`[DecisionAgent] LLM recommended action: ${recData.action}`);
   } catch (err) {
     logger.error('[DecisionAgent] LLM decision failed — defaulting to hold:', err.message);

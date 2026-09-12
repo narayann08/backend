@@ -1,9 +1,9 @@
 'use strict';
 const notificationTool = require('../../src/services/mcp-tools/notificationTool');
-const { ChatOpenAI } = require('@langchain/openai');
+const { completeJson } = require('../../src/services/llm/xaiClient');
 
 jest.mock('../../src/services/mcp-tools/notificationTool');
-jest.mock('@langchain/openai');
+jest.mock('../../src/services/llm/xaiClient');
 
 const { runExplainabilityAgent } = require('../../src/services/agents/explainabilityAgent');
 
@@ -38,10 +38,7 @@ describe('Agent: explainabilityAgent', () => {
       factors: ['low_irradiance', 'morning_peak_demand', 'battery_availability'],
     };
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(mockExplanation),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(mockExplanation);
 
     const state = {
       plant: mockPlant,
@@ -69,10 +66,7 @@ describe('Agent: explainabilityAgent', () => {
       factors: ['simulation_override'],
     };
 
-    const mockInvoke = jest.fn().mockResolvedValue({
-      content: JSON.stringify(mockExplanation),
-    });
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockResolvedValue(mockExplanation);
 
     const state = {
       plant: mockPlant,
@@ -88,8 +82,7 @@ describe('Agent: explainabilityAgent', () => {
 
   it('falls back to default explanation structure when LLM fails', async () => {
     notificationTool.handler.mockResolvedValue({});
-    const mockInvoke = jest.fn().mockRejectedValue(new Error('LLM error'));
-    ChatOpenAI.mockImplementation(() => ({ invoke: mockInvoke }));
+    completeJson.mockRejectedValue(new Error('LLM error'));
 
     const state = {
       plant: mockPlant,

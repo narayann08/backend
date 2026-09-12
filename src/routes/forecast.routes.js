@@ -1,7 +1,7 @@
 'use strict';
 const express = require('express');
 const router = express.Router({ mergeParams: true });
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { identifyUser } = require('../middleware/authMiddleware');
 const ForecastResult = require('../models/ForecastResult');
 const Plant = require('../models/Plant');
 const { runForecastWorkflow } = require('../services/graph/forecastWorkflow');
@@ -9,7 +9,7 @@ const { v4: uuidv4 } = require('uuid');
 const logger = require('../utils/logger');
 const rateLimit = require('express-rate-limit');
 
-router.use(authMiddleware);
+router.use(identifyUser);
 
 // Rate-limit fresh forecast triggers (LLM calls are expensive)
 const forecastTriggerLimiter = rateLimit({

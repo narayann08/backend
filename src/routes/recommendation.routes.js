@@ -1,10 +1,10 @@
 'use strict';
 const express = require('express');
 const router = express.Router({ mergeParams: true });
-const { authMiddleware } = require('../middleware/authMiddleware');
+const { identifyUser } = require('../middleware/authMiddleware');
 const Recommendation = require('../models/Recommendation');
 
-router.use(authMiddleware);
+router.use(identifyUser);
 
 /**
  * GET /v1/plants/:plantId/recommendation

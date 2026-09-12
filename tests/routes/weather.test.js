@@ -14,17 +14,11 @@ jest.mock('../../src/services/agents/weatherReasoningAgent');
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Plant = require('../../src/models/Plant');
 const { runWeatherReasoningAgent } = require('../../src/services/agents/weatherReasoningAgent');
 const app = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'operator@fluxcast.io', role: 'grid_operator', name: 'Operator' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Weather Routes', () => {
   const plantId = new mongoose.Types.ObjectId();
@@ -40,17 +34,12 @@ describe('Weather Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('GET /v1/plants/:plantId/weather', () => {
-    it('returns 401 without auth', async () => {
-      const res = await request(app).get(`/v1/plants/${plantId}/weather`);
-      expect(res.status).toBe(401);
-    });
-
     it('returns 404 if plant not found', async () => {
       Plant.findById.mockReturnValue({ lean: () => null });
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/weather`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(404);
     });
@@ -69,7 +58,7 @@ describe('Weather Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/weather?hours=48`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.source).toBe('open-meteo+nasa-power (reconciled)');

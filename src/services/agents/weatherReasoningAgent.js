@@ -1,7 +1,5 @@
 'use strict';
-const { ChatOpenAI } = require('@langchain/openai');
-const { HumanMessage, SystemMessage } = require('@langchain/core/messages');
-const env = require('../../config/env');
+const { completeJson } = require('../llm/xaiClient');
 const logger = require('../../utils/logger');
 const openMeteoTool = require('../mcp-tools/openMeteoTool');
 const nasaPowerTool = require('../mcp-tools/nasaPowerTool');
@@ -37,13 +35,6 @@ async function runWeatherReasoningAgent(plant, hours = 72) {
   );
 
   // ── Step 2: Use LLM to reconcile data sources ─────────────────────────────
-  const llm = new ChatOpenAI({
-    openAIApiKey: env.XAI_API_KEY,
-    modelName:    env.XAI_MODEL,
-    maxTokens:    4096,
-    configuration: { baseURL: env.XAI_BASE_URL },
-  });
-
   const systemPrompt = `You are the Weather-Reasoning Agent for FluxCast, a renewable energy forecasting platform.
 Your job is to reconcile weather data from Open-Meteo (NWP forecast) and NASA POWER API (satellite-derived solar & met data) to produce a single trusted hourly forecast.
 
@@ -64,11 +55,7 @@ Reconciliation rules:
 
   let reconciledHourly;
   try {
-    const response = await llm.invoke([
-      new SystemMessage(systemPrompt),
-      new HumanMessage(userMessage),
-    ]);
-    reconciledHourly = JSON.parse(response.content);
+    reconciledHourly = await completeJson({ system: systemPrompt, user: userMessage, maxTokens: 4096 });
     logger.info(`[WeatherAgent] LLM reconciliation produced ${reconciledHourly.length} hourly entries`);
   } catch (err) {
     logger.warn('[WeatherAgent] LLM reconciliation failed — falling back to Open-Meteo data:', err.message);

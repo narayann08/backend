@@ -17,17 +17,11 @@ jest.mock('../../src/services/graph/forecastWorkflow', () => ({
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Plant = require('../../src/models/Plant');
 const ForecastResult = require('../../src/models/ForecastResult');
 const app = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'operator@fluxcast.io', role: 'grid_operator', name: 'Operator' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Forecast Routes', () => {
   const plantId = new mongoose.Types.ObjectId();
@@ -41,11 +35,6 @@ describe('Forecast Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('GET /v1/plants/:plantId/forecast', () => {
-    it('returns 401 without auth', async () => {
-      const res = await request(app).get(`/v1/plants/${plantId}/forecast`);
-      expect(res.status).toBe(401);
-    });
-
     it('returns 404 if no forecast exists', async () => {
       ForecastResult.findOne.mockReturnValue({
         sort: () => ({ lean: () => null }),
@@ -53,7 +42,7 @@ describe('Forecast Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/forecast`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(404);
       expect(res.body.error).toBe(true);
@@ -73,7 +62,7 @@ describe('Forecast Routes', () => {
 
       const res = await request(app)
         .get(`/v1/plants/${plantId}/forecast?horizon=24`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.plantId).toBe(plantId.toString());
@@ -87,7 +76,7 @@ describe('Forecast Routes', () => {
 
       const res = await request(app)
         .post(`/v1/plants/${plantId}/forecast`)
-        .set('Authorization', auth)
+        .set(auth)
         .send({ horizon: 24 });
 
       expect(res.status).toBe(404);
@@ -98,7 +87,7 @@ describe('Forecast Routes', () => {
 
       const res = await request(app)
         .post(`/v1/plants/${plantId}/forecast`)
-        .set('Authorization', auth)
+        .set(auth)
         .send({ horizon: 24 });
 
       expect(res.status).toBe(202);

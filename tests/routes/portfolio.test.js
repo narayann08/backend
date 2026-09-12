@@ -14,17 +14,11 @@ jest.mock('../../src/models/ForecastResult');
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Plant = require('../../src/models/Plant');
 const ForecastResult = require('../../src/models/ForecastResult');
 const app = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'operator@fluxcast.io', role: 'grid_operator', name: 'Operator' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Portfolio Routes', () => {
   const plantId1 = new mongoose.Types.ObjectId();
@@ -33,9 +27,12 @@ describe('Portfolio Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('GET /v1/portfolio/forecast', () => {
-    it('returns 401 without auth token', async () => {
+    it('is reachable without any auth header (no recurring token check)', async () => {
+      Plant.find.mockReturnValue({
+        select: () => ({ lean: () => [] }),
+      });
       const res = await request(app).get('/v1/portfolio/forecast');
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(200);
     });
 
     it('returns empty breakdown when no forecasts exist', async () => {
@@ -50,7 +47,7 @@ describe('Portfolio Routes', () => {
 
       const res = await request(app)
         .get('/v1/portfolio/forecast')
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.totalExpectedMW).toEqual([]);
@@ -80,7 +77,7 @@ describe('Portfolio Routes', () => {
 
       const res = await request(app)
         .get(`/v1/portfolio/forecast?plantIds=${plantId1},${plantId2}&horizon=24`)
-        .set('Authorization', auth);
+        .set(auth);
 
       expect(res.status).toBe(200);
       expect(res.body.horizonHours).toBe(24);

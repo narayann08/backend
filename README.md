@@ -17,7 +17,7 @@ FluxCast is a renewable generation forecasting and grid decision-support backend
 Client (dashboard / Postman)
         |
         v
-Express API (/v1) --- OpenAPI request validation --- JWT auth middleware
+Express API (/v1) --- OpenAPI request validation --- role identification middleware
         |
         v
 LangGraph-style workflow (services/graph/forecastWorkflow.js)
@@ -30,15 +30,15 @@ MCP tools (weather fetch, telemetry read, RAG search, battery/demand stubs, aler
 MongoDB (Users, Plants, Telemetry, WeatherSnapshots, Forecasts, Recommendations, Alerts)
 ```
 
-Requests are validated against `openapi.yaml` before reaching any route handler. Every protected route requires a `Bearer` JWT issued by `/v1/auth/login`.
+Requests are validated against `openapi.yaml` before reaching any route handler. There is no per-request JWT check: login is a one-click role selection (`POST /v1/auth/login/:role`) against a predefined user already stored in the `users` collection, and no token is issued. Callers may optionally send an `x-user-role` header (set once, after login) so the one role-restricted route (`DELETE /plants/:plantId`) can apply `requireRole`.
 
 ## Module Workflow
 
 - `src/config` - `env.js` loads and validates required environment variables at startup; `db.js` connects to the configured MongoDB URI and automatically falls back to a local MongoDB instance if that connection fails.
 - `src/models` - Mongoose schemas: `User`, `Plant`, `Telemetry`, `WeatherSnapshot`, `ForecastResult`, `Recommendation`, `Alert`. These define the exact shape of every persisted document.
-- `src/middleware` - `authMiddleware` verifies the JWT and attaches `req.user`; `openApiValidatorSetup` rejects any request that does not match `openapi.yaml`; `errorHandler` turns thrown errors into a consistent `{ error, message }` JSON response.
+- `src/middleware` - `identifyUser` (in `authMiddleware.js`) reads an optional `x-user-role` header and attaches `req.user`, but never rejects a request — there is no recurring token check; `requireRole` still gates the one role-restricted route off that header; `openApiValidatorSetup` rejects any request that does not match `openapi.yaml`; `errorHandler` turns thrown errors into a consistent `{ error, message }` JSON response.
 - `src/routes` - one Express router per resource (auth, plants, weather, forecast, recommendation/explain, simulate, alerts, portfolio). Routers are mounted under `/v1` in `app.js`.
-- `src/services/auth` - `authService.js` handles login, registration, password hashing/verification, and password reset token issuance.
+- `src/services/auth` - `authService.js` implements the one-click role login (`loginWithRole`, `listRoles`) that fetches the single stored user per predefined role. It also retains (unrouted) legacy registration/password-reset helpers.
 - `src/services/agents` - the four LLM-driven agents that make up the forecasting pipeline (see next section).
 - `src/services/graph/forecastWorkflow.js` - runs the four agents in sequence, passing a single shared state object between them and logging each step for auditability.
 - `src/services/mcp-tools` - single-purpose tool functions the agents call: fetching weather (`openMeteoTool`, `nasaGisTool`/`nasaPowerTool`, `mosdacTool` - now an Open-Meteo alias), reading telemetry (`telemetryTool`), similarity search for new plants (`ragRetrieverTool`), battery/demand stubs (`batteryStatusTool`, `demandDataTool`), generic persistence (`dbReadWriteTool`), and alerting (`notificationTool`).
@@ -62,27 +62,30 @@ Every forecast run (scheduled, manually triggered, or simulated) executes the sa
 
 ## API Reference
 
-All endpoints are prefixed with `/v1` and validated against `openapi.yaml`. Endpoints marked "Yes" require an `Authorization: Bearer <token>` header.
+All endpoints are prefixed with `/v1` and validated against `openapi.yaml`. There is no recurring JWT check on any route; "Role header" marks the one endpoint that reads the optional `x-user-role` header to enforce a role restriction.
 
-| Method | Endpoint | Auth | Description |
+| Method | Endpoint | Role header | Description |
 |---|---|---|---|
-| POST | `/auth/login` | No | Authenticate with email/password and receive a JWT. |
-| GET | `/plants` | Yes | List registered plants, filterable by type, paginated. |
-| POST | `/plants` | Yes | Register a new solar or wind plant. |
-| GET | `/plants/:plantId` | Yes | Get a single plant's metadata and capacity specs. |
-| PATCH | `/plants/:plantId` | Yes | Update a plant's metadata. |
+| GET | `/auth/roles` | No | List the three predefined roles for the startup role-selection screen. |
+| POST | `/auth/login/system-admin` | No | One-click login: fetch the stored System Admin user. No credentials taken. |
+| POST | `/auth/login/lead-grid-operator` | No | One-click login: fetch the stored Lead Grid Operator user. No credentials taken. |
+| POST | `/auth/login/utility-admin` | No | One-click login: fetch the stored Utility Admin user. No credentials taken. |
+| GET | `/plants` | No | List registered plants, filterable by type, paginated. |
+| POST | `/plants` | No | Register a new solar or wind plant. |
+| GET | `/plants/:plantId` | No | Get a single plant's metadata and capacity specs. |
+| PATCH | `/plants/:plantId` | No | Update a plant's metadata. |
 | DELETE | `/plants/:plantId` | Yes (admin/utility_admin) | Remove a plant. |
-| GET | `/plants/:plantId/telemetry` | Yes | Retrieve recent (default 4 days) actual generation and sensor history. |
-| POST | `/plants/:plantId/telemetry` | Yes | Ingest a new SCADA/inverter telemetry reading. |
-| GET | `/plants/:plantId/weather` | Yes | Get the reconciled weather snapshot for a plant's location, produced by the WeatherReasoningAgent. |
-| GET | `/plants/:plantId/forecast` | Yes | Get the most recently generated forecast for a given horizon (24/48/72h). |
-| POST | `/plants/:plantId/forecast` | Yes | Trigger a fresh run of the full agent workflow in the background; returns a `jobId` immediately. |
-| GET | `/plants/:plantId/recommendation` | Yes | Get the DecisionAgent's latest recommended grid action. |
-| GET | `/plants/:plantId/explain` | Yes | Get the ExplainabilityAgent's plain-language rationale for the current forecast/recommendation. |
-| POST | `/simulate` | Yes | Re-run the workflow with temporary overrides (demand spike, outage, etc.) without touching stored data. |
-| GET | `/alerts` | Yes | List alerts, filterable by severity and plant. |
-| POST | `/alerts/:alertId/acknowledge` | Yes | Mark an alert as acknowledged. |
-| GET | `/portfolio/forecast` | Yes | Aggregated generation forecast summed across multiple (or all) plants. |
+| GET | `/plants/:plantId/telemetry` | No | Retrieve recent (default 4 days) actual generation and sensor history. |
+| POST | `/plants/:plantId/telemetry` | No | Ingest a new SCADA/inverter telemetry reading. |
+| GET | `/plants/:plantId/weather` | No | Get the reconciled weather snapshot for a plant's location, produced by the WeatherReasoningAgent. |
+| GET | `/plants/:plantId/forecast` | No | Get the most recently generated forecast for a given horizon (24/48/72h). |
+| POST | `/plants/:plantId/forecast` | No | Trigger a fresh run of the full agent workflow in the background; returns a `jobId` immediately. |
+| GET | `/plants/:plantId/recommendation` | No | Get the DecisionAgent's latest recommended grid action. |
+| GET | `/plants/:plantId/explain` | No | Get the ExplainabilityAgent's plain-language rationale for the current forecast/recommendation. |
+| POST | `/simulate` | No | Re-run the workflow with temporary overrides (demand spike, outage, etc.) without touching stored data. |
+| GET | `/alerts` | No | List alerts, filterable by severity and plant. |
+| POST | `/alerts/:alertId/acknowledge` | No | Mark an alert as acknowledged. |
+| GET | `/portfolio/forecast` | No | Aggregated generation forecast summed across multiple (or all) plants. |
 | GET | `/health` | No | Server and database connection status. Not part of the OpenAPI contract. |
 
 ## Renewable Energy Glossary
@@ -114,4 +117,4 @@ Terms used throughout the API responses and agent logic:
 4. `npm run dev` to start the server on `PORT` (default 5000).
 5. `npm test` to run the Jest test suite (route contract tests, agent unit tests, and a CSV-driven end-to-end pipeline test).
 
-Default seeded login: `admin@fluxcast.io` / `Password123!` (also `operator@fluxcast.io`, `utility@fluxcast.io`).
+Login is one-click and role-based, not credential-based: the client calls `GET /v1/auth/roles` to render a startup role-selection screen, then `POST /v1/auth/login/:role` (`system-admin`, `lead-grid-operator`, or `utility-admin`) to fetch the single shared, pre-seeded user for that role — no email/password, no token. The three seeded users are `admin@fluxcast.io`, `operator@fluxcast.io`, and `utility@fluxcast.io` (seeded with a password field for schema compatibility only; it is never used).

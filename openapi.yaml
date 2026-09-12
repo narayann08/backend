@@ -33,24 +33,44 @@ tags:
 
 paths:
 
-  /auth/login:
+  /auth/roles:
+    get:
+      tags: [Auth]
+      summary: List predefined roles available for one-click login
+      description: >
+        Used to render the role-selection screen shown on app startup. Each
+        role maps to a single shared user document already stored in the
+        users collection — no account creation is involved.
+      responses:
+        '200':
+          description: Available login roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                          example: system-admin
+                        role:
+                          type: string
+                          example: admin
+                        label:
+                          type: string
+                          example: System Admin
+
+  /auth/login/system-admin:
     post:
       tags: [Auth]
-      summary: Log in and receive an access token
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [email, password]
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
+      summary: One-click login as the System Admin
+      description: >
+        No credentials required. Fetches the predefined System Admin user
+        already stored in the users collection.
       responses:
         '200':
           description: Login successful
@@ -59,19 +79,67 @@ paths:
               schema:
                 type: object
                 properties:
-                  token:
-                    type: string
                   user:
                     $ref: '#/components/schemas/User'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
+        '404':
+          description: No stored user found for this role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login/lead-grid-operator:
+    post:
+      tags: [Auth]
+      summary: One-click login as the Lead Grid Operator
+      description: >
+        No credentials required. Fetches the predefined Lead Grid Operator
+        user already stored in the users collection.
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: No stored user found for this role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/login/utility-admin:
+    post:
+      tags: [Auth]
+      summary: One-click login as the Utility Admin
+      description: >
+        No credentials required. Fetches the predefined Utility Admin user
+        already stored in the users collection.
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '404':
+          description: No stored user found for this role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
 
   /plants:
     get:
       tags: [Plants]
       summary: List all plants
-      security:
-        - bearerAuth: []
       parameters:
         - name: type
           in: query
@@ -106,8 +174,6 @@ paths:
     post:
       tags: [Plants]
       summary: Register a new plant
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -130,8 +196,6 @@ paths:
     get:
       tags: [Plants]
       summary: Get a single plant's details
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Plant details
@@ -144,8 +208,6 @@ paths:
     patch:
       tags: [Plants]
       summary: Update plant details
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -162,8 +224,6 @@ paths:
     delete:
       tags: [Plants]
       summary: Remove a plant
-      security:
-        - bearerAuth: []
       responses:
         '204':
           description: Deleted successfully
@@ -176,8 +236,6 @@ paths:
     get:
       tags: [Plants]
       summary: Get recent telemetry (last 3–4 days) for a plant
-      security:
-        - bearerAuth: []
       parameters:
         - name: days
           in: query
@@ -196,8 +254,6 @@ paths:
     post:
       tags: [Plants]
       summary: Ingest a new telemetry reading (from SCADA/inverter feed)
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -218,8 +274,6 @@ paths:
         Returns weather data combined from Open-Meteo (https://api.open-meteo.com/v1/forecast)
         and NASA POWER sources for the plant's location, reconciled by the
         Weather-Reasoning Agent.
-      security:
-        - bearerAuth: []
       parameters:
         - name: hours
           in: query
@@ -242,8 +296,6 @@ paths:
     get:
       tags: [Forecasts]
       summary: Get the latest generation forecast for a plant
-      security:
-        - bearerAuth: []
       parameters:
         - name: horizon
           in: query
@@ -267,8 +319,6 @@ paths:
       description: >
         Kicks off the LangGraph agent workflow (Weather-Reasoning →
         Forecasting → Decision → Explainability) for this plant.
-      security:
-        - bearerAuth: []
       requestBody:
         content:
           application/json:
@@ -299,8 +349,6 @@ paths:
     get:
       tags: [Recommendations]
       summary: Get the latest recommended action for a plant
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Recommendation from the Decision Agent
@@ -318,8 +366,6 @@ paths:
       tags: [Recommendations]
       summary: Get a plain-language explanation of the current forecast/recommendation
       description: Output of the Explainability Agent, used for the dashboard root-cause panel.
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Natural-language explanation
@@ -343,8 +389,6 @@ paths:
       description: >
         Re-runs the agent workflow with modified assumptions (e.g., demand
         spike, equipment outage) without affecting stored forecasts.
-      security:
-        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -363,8 +407,6 @@ paths:
     get:
       tags: [Alerts]
       summary: List active alerts across all plants
-      security:
-        - bearerAuth: []
       parameters:
         - name: severity
           in: query
@@ -395,8 +437,6 @@ paths:
     post:
       tags: [Alerts]
       summary: Acknowledge an alert
-      security:
-        - bearerAuth: []
       responses:
         '200':
           description: Alert acknowledged
@@ -409,8 +449,6 @@ paths:
     get:
       tags: [Portfolio]
       summary: Get aggregated forecast across all (or selected) plants
-      security:
-        - bearerAuth: []
       parameters:
         - name: plantIds
           in: query
@@ -432,12 +470,6 @@ paths:
                 $ref: '#/components/schemas/PortfolioForecast'
 
 components:
-  securitySchemes:
-    bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: JWT
-
   parameters:
     PlantId:
       name: plantId
@@ -450,12 +482,6 @@ components:
   responses:
     BadRequest:
       description: Invalid request
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/Error'
-    Unauthorized:
-      description: Authentication failed
       content:
         application/json:
           schema:

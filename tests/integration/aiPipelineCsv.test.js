@@ -11,12 +11,13 @@ const { loadTelemetryFixture } = require('../helpers/csvLoader');
  *
  * There is no live X.AI Grok key, MongoDB Atlas cluster, or external weather API access in this
  * environment, so — exactly like the rest of this repo's test suite — every external boundary is
- * mocked. The one piece that needs care is the LLM: instead of a canned/fixed response, `ChatOpenAI`
- * is replaced with a deterministic stand-in that implements the *exact* physics/decision rules each
- * agent's own system prompt specifies (see src/services/agents/*.js). That lets this test validate
- * the real orchestration — WeatherReasoning -> Forecasting -> Decision -> Explainability, MCP tool
- * wiring, risk-window propagation, and alerting — against realistic, CSV-sourced generation data,
- * without depending on network access or non-deterministic model output.
+ * mocked. The one piece that needs care is the LLM: instead of a canned/fixed response, `completeJson`
+ * (the shared xAI/Grok client wrapper — see src/services/llm/xaiClient.js) is replaced with a
+ * deterministic stand-in that implements the *exact* physics/decision rules each agent's own system
+ * prompt specifies (see src/services/agents/*.js). That lets this test validate the real orchestration
+ * — WeatherReasoning -> Forecasting -> Decision -> Explainability, MCP tool wiring, risk-window
+ * propagation, and alerting — against realistic, CSV-sourced generation data, without depending on
+ * network access or non-deterministic model output.
  */
 
 // ── Mock all external MCP tools & persistence boundaries ─────────────────────
@@ -28,7 +29,7 @@ jest.mock('../../src/services/mcp-tools/notificationTool');
 jest.mock('../../src/models/WeatherSnapshot');
 jest.mock('../../src/models/ForecastResult');
 jest.mock('../../src/models/Recommendation');
-jest.mock('@langchain/openai');
+jest.mock('../../src/services/llm/xaiClient');
 
 const openMeteoTool     = require('../../src/services/mcp-tools/openMeteoTool');
 const nasaPowerTool     = require('../../src/services/mcp-tools/nasaPowerTool');
@@ -38,7 +39,7 @@ const notificationTool  = require('../../src/services/mcp-tools/notificationTool
 const WeatherSnapshot   = require('../../src/models/WeatherSnapshot');
 const ForecastResult    = require('../../src/models/ForecastResult');
 const Recommendation    = require('../../src/models/Recommendation');
-const { ChatOpenAI }    = require('@langchain/openai');
+const { completeJson }  = require('../../src/services/llm/xaiClient');
 
 const { runForecastWorkflow } = require('../../src/services/graph/forecastWorkflow');
 
@@ -140,24 +141,13 @@ function buildScenario(plant, telemetry) {
 }
 
 function installFakeLlm(scenario) {
-  ChatOpenAI.mockImplementation(() => ({
-    invoke: jest.fn(async (messages) => {
-      const systemPrompt = messages[0].content;
-      if (systemPrompt.includes('Weather-Reasoning Agent')) {
-        return { content: JSON.stringify(scenario.weatherHourly) };
-      }
-      if (systemPrompt.includes('Forecasting Agent')) {
-        return { content: JSON.stringify(scenario.forecastData) };
-      }
-      if (systemPrompt.includes('Decision Agent')) {
-        return { content: JSON.stringify(scenario.decisionData) };
-      }
-      if (systemPrompt.includes('Explainability Agent')) {
-        return { content: JSON.stringify(scenario.explanationData) };
-      }
-      throw new Error('Fake LLM received an unrecognised system prompt');
-    }),
-  }));
+  completeJson.mockImplementation(async ({ system }) => {
+    if (system.includes('Weather-Reasoning Agent')) return scenario.weatherHourly;
+    if (system.includes('Forecasting Agent')) return scenario.forecastData;
+    if (system.includes('Decision Agent')) return scenario.decisionData;
+    if (system.includes('Explainability Agent')) return scenario.explanationData;
+    throw new Error('Fake LLM received an unrecognised system prompt');
+  });
 }
 
 function mockPersistence() {

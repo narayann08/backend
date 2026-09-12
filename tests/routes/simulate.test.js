@@ -14,17 +14,11 @@ jest.mock('../../src/services/graph/forecastWorkflow');
 
 const request = require('supertest');
 const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
 const Plant = require('../../src/models/Plant');
 const { runForecastWorkflow } = require('../../src/services/graph/forecastWorkflow');
 const app = require('../../src/app');
 
-const token = jwt.sign(
-  { id: 'u1', email: 'operator@fluxcast.io', role: 'grid_operator', name: 'Operator' },
-  'test_secret_key',
-  { expiresIn: '1h' }
-);
-const auth = `Bearer ${token}`;
+const auth = { 'x-user-role': 'grid_operator' };
 
 describe('Simulation Routes', () => {
   const plantId = new mongoose.Types.ObjectId();
@@ -38,17 +32,12 @@ describe('Simulation Routes', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('POST /v1/simulate', () => {
-    it('returns 401 without auth', async () => {
-      const res = await request(app).post('/v1/simulate').send({});
-      expect(res.status).toBe(401);
-    });
-
     it('returns 404 if target plant does not exist', async () => {
       Plant.findById.mockReturnValue({ lean: () => null });
 
       const res = await request(app)
         .post('/v1/simulate')
-        .set('Authorization', auth)
+        .set(auth)
         .send({
           plantId,
           scenario: '20% cloudy morning',
@@ -68,7 +57,7 @@ describe('Simulation Routes', () => {
 
       const res = await request(app)
         .post('/v1/simulate')
-        .set('Authorization', auth)
+        .set(auth)
         .send({
           plantId,
           scenario: 'Cloud cover spike',
