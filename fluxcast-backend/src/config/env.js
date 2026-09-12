@@ -29,6 +29,17 @@ const env = {
     'http://localhost:8000',
 
   REDIS_URL: process.env.REDIS_URL || '',
+
+  // Minutes a stored WeatherSnapshot stays servable before the weather agent re-runs.
+  WEATHER_CACHE_MINUTES: parseInt(process.env.WEATHER_CACHE_MINUTES, 10) || 60,
+
+  // SMTP is optional: when unset, alert emails are recorded as "skipped" instead of sent.
+  SMTP_HOST: process.env.SMTP_HOST || '',
+  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
+  SMTP_USER: process.env.SMTP_USER || '',
+  SMTP_PASS: process.env.SMTP_PASS || '',
+  ALERT_EMAIL_FROM: process.env.ALERT_EMAIL_FROM || 'alerts@fluxcast.io',
+  ALERT_EMAIL_TO: process.env.ALERT_EMAIL_TO || '',
 };
 
 // Validate required vars at startup (skip in test environment)

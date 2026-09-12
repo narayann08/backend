@@ -11,7 +11,8 @@
     "mock:csv:import": "node src/scripts/importTelemetryCsv.js",
     "test": "jest --runInBand --forceExit --detectOpenHandles",
     "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
-    "test:all": "node test_executor.js"
+    "test:all": "node test_executor.js",
+    "mock:telemetry:catchup": "node src/scripts/catchUpTelemetry.js"
   },
   "dependencies": {
     "axios": "^1.7.0",
@@ -26,6 +27,7 @@
     "mongoose": "^8.4.1",
     "morgan": "^1.10.0",
     "node-cron": "^3.0.3",
+    "nodemailer": "^10.0.9",
     "openai": "^4.52.0",
     "socket.io": "^4.7.5",
     "uuid": "^10.0.0",

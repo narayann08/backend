@@ -469,6 +469,208 @@ paths:
               schema:
                 $ref: '#/components/schemas/PortfolioForecast'
 
+  /plants/{plantId}/generation/live:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Plants]
+      summary: Latest measured generation with its forecast baseline
+      description: >
+        Most recent SCADA reading for the plant, paired with the forecast
+        expectation for the same hour so the dashboard can show actual vs
+        expected output in one call.
+      responses:
+        '200':
+          description: Live generation reading
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveGeneration'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plants/{plantId}/performance:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Forecasts]
+      summary: Classify current output (lower / usual / higher) and explain deviations
+      description: >
+        Compares the latest telemetry reading against the most recent
+        cron-generated forecast, classifies the result, and attributes any
+        shortfall to concrete causes derived from sensor status and the stored
+        weather snapshot.
+      responses:
+        '200':
+          description: Performance evaluation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerformanceEvaluation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plants/{plantId}/history:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Forecasts]
+      summary: Hourly forecast-vs-actual generation and prediction confidence
+      description: >
+        Returns one point per hour across the requested range. Each hour uses
+        the forecast that was generated before that hour, so the comparison
+        reflects genuine ahead-of-time predictions. Defaults to the last 7 days.
+      parameters:
+        - name: from
+          in: query
+          description: Range start (ISO 8601). Defaults to 7 days before `to`.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Range end (ISO 8601). Defaults to now.
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Historical series with accuracy summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlantHistory'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plants/{plantId}/recommendations:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Recommendations]
+      summary: Recent AI recommendations for the notice board
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+      responses:
+        '200':
+          description: Recommendation feed, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  plantId:
+                    type: string
+                  total:
+                    type: integer
+                  recommendations:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Recommendation'
+
+  /plants/{plantId}/chat:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    post:
+      tags: [Recommendations]
+      summary: Ask the plant-scoped AI assistant a question
+      description: >
+        Answers operator questions using only this plant's stored telemetry,
+        forecast, weather and recommendations. Returns 503 when the upstream
+        model is unavailable — it never answers with invented data.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  example: Why is generation below forecast right now?
+                history:
+                  type: array
+                  description: Prior turns for context; the last 6 are used.
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum: [user, assistant]
+                      content:
+                        type: string
+      responses:
+        '200':
+          description: Assistant reply
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChatReply'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          description: AI assistant unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /notifications:
+    get:
+      tags: [Alerts]
+      summary: Delivery log for alert notifications
+      description: >
+        Read-only audit trail of socket pushes and email escalations raised by
+        the backend when alerts fire. Sending is backend-only; this endpoint
+        exists so the dashboard can display what was dispatched.
+      parameters:
+        - name: plantId
+          in: query
+          schema:
+            type: string
+        - name: channel
+          in: query
+          schema:
+            type: string
+            enum: [socket, email]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [sent, skipped, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 200
+      responses:
+        '200':
+          description: Notification dispatch log
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  emailConfigured:
+                    type: boolean
+                  total:
+                    type: integer
+                  notifications:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Notification'
+
 components:
   parameters:
     PlantId:
@@ -772,3 +974,253 @@ components:
                 type: string
               expectedMW:
                 type: number
+
+    LiveGeneration:
+      type: object
+      properties:
+        plantId:
+          type: string
+        plantName:
+          type: string
+        timestamp:
+          type: string
+          format: date-time
+        generationMW:
+          type: number
+        capacityMW:
+          type: number
+        capacityFactorPct:
+          type: number
+          nullable: true
+        sensorStatus:
+          type: string
+          enum: [ok, degraded, offline]
+        outage:
+          type: boolean
+        expectedMW:
+          type: number
+          nullable: true
+          description: Forecast expectation for the same hour
+        deltaMW:
+          type: number
+          nullable: true
+        deltaPct:
+          type: number
+          nullable: true
+        classification:
+          type: string
+          enum: [lower, usual, higher, unknown]
+
+    PerformanceReason:
+      type: object
+      properties:
+        code:
+          type: string
+          example: high_cloud_cover
+        detail:
+          type: string
+        impact:
+          type: string
+          enum: [high, medium, low]
+
+    PerformanceEvaluation:
+      type: object
+      properties:
+        plantId:
+          type: string
+        plantName:
+          type: string
+        plantType:
+          type: string
+          enum: [solar, wind]
+        capacityMW:
+          type: number
+        evaluatedAt:
+          type: string
+          format: date-time
+        measuredAt:
+          type: string
+          format: date-time
+          nullable: true
+        actualMW:
+          type: number
+          nullable: true
+        expectedMW:
+          type: number
+          nullable: true
+        deltaMW:
+          type: number
+          nullable: true
+        deltaPct:
+          type: number
+          nullable: true
+        capacityFactorPct:
+          type: number
+          nullable: true
+        classification:
+          type: string
+          enum: [lower, usual, higher, unknown]
+        confidencePct:
+          type: number
+          nullable: true
+        underperforming:
+          type: boolean
+        reasons:
+          type: array
+          items:
+            $ref: '#/components/schemas/PerformanceReason'
+        sensorStatus:
+          type: string
+          nullable: true
+        outage:
+          type: boolean
+          nullable: true
+        forecastGeneratedAt:
+          type: string
+          format: date-time
+          nullable: true
+        weatherSnapshotAt:
+          type: string
+          format: date-time
+          nullable: true
+        usualBandPct:
+          type: number
+          description: Deviation within ±this percentage counts as "usual"
+
+    HistoryPoint:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        actualMW:
+          type: number
+          nullable: true
+        forecastMW:
+          type: number
+          nullable: true
+        lowerBoundMW:
+          type: number
+          nullable: true
+        upperBoundMW:
+          type: number
+          nullable: true
+        confidencePct:
+          type: number
+          nullable: true
+        errorMW:
+          type: number
+          nullable: true
+        sensorDegraded:
+          type: boolean
+          nullable: true
+        outage:
+          type: boolean
+          nullable: true
+
+    PlantHistory:
+      type: object
+      properties:
+        plantId:
+          type: string
+        plantName:
+          type: string
+        plantType:
+          type: string
+        capacityMW:
+          type: number
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/HistoryPoint'
+        summary:
+          type: object
+          properties:
+            hours:
+              type: integer
+            pairedHours:
+              type: integer
+            actualTotalMWh:
+              type: number
+              nullable: true
+            forecastTotalMWh:
+              type: number
+              nullable: true
+            peakActualMW:
+              type: number
+              nullable: true
+            maeMW:
+              type: number
+              nullable: true
+              description: Mean absolute error across hours with both series
+            mapePct:
+              type: number
+              nullable: true
+            avgConfidencePct:
+              type: number
+              nullable: true
+
+    ChatReply:
+      type: object
+      properties:
+        plantId:
+          type: string
+        question:
+          type: string
+        reply:
+          type: string
+        contextUsed:
+          type: object
+          properties:
+            measuredAt:
+              type: string
+              format: date-time
+              nullable: true
+            classification:
+              type: string
+            openAlerts:
+              type: integer
+            hasRecommendation:
+              type: boolean
+        answeredAt:
+          type: string
+          format: date-time
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+        alertId:
+          type: string
+        plantId:
+          type: string
+        channel:
+          type: string
+          enum: [socket, email]
+        status:
+          type: string
+          enum: [sent, skipped, failed]
+        recipient:
+          type: string
+          nullable: true
+        severity:
+          type: string
+          enum: [low, medium, high]
+        type:
+          type: string
+        subject:
+          type: string
+          nullable: true
+        detail:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time

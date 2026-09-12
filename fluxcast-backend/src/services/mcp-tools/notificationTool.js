@@ -1,6 +1,9 @@
 'use strict';
 const Alert = require('../../models/Alert');
+const Notification = require('../../models/Notification');
+const Plant = require('../../models/Plant');
 const { emitAlert } = require('../../sockets/alertSocket');
+const { dispatchAlertEmail } = require('../notifications/emailDispatcher');
 const logger = require('../../utils/logger');
 
 /**
@@ -46,8 +49,43 @@ const notificationTool = {
       createdAt: alert.createdAt,
     });
 
-    logger.info(`[NotificationTool] Alert raised: [${severity}] ${type} for plant ${plantId}`);
-    return { success: true, alertId: alert._id };
+    await Notification.create({
+      alertId: alert._id,
+      plantId,
+      channel: 'socket',
+      status: 'sent',
+      severity,
+      type,
+      subject: message.slice(0, 140),
+    });
+
+    // High-severity alerts and sensor faults also escalate by email (backend-only).
+    const plant = await Plant.findById(plantId).select('name').lean();
+    const emailResult = await dispatchAlertEmail({
+      plantId,
+      plantName: plant?.name,
+      severity,
+      type,
+      message,
+    });
+
+    await Notification.create({
+      alertId: alert._id,
+      plantId,
+      channel: 'email',
+      status: emailResult.status,
+      recipient: emailResult.recipient,
+      severity,
+      type,
+      subject: emailResult.subject,
+      detail: emailResult.detail,
+    });
+
+    logger.info(
+      `[NotificationTool] Alert raised: [${severity}] ${type} for plant ${plantId} ` +
+      `(email: ${emailResult.status})`
+    );
+    return { success: true, alertId: alert._id, emailStatus: emailResult.status };
   },
 };
 

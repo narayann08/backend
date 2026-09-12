@@ -32,4 +32,20 @@ async function completeJson({ system, user, maxTokens = 2048 }) {
   return JSON.parse(cleaned);
 }
 
-module.exports = { xaiClient, completeJson };
+/**
+ * Call Grok chat completions for a free-text (non-JSON) answer, such as the
+ * operator chatbot.
+ * @param {{ system: string, messages: Array<{role: string, content: string}>, maxTokens?: number }} params
+ * @returns {Promise<string>} The assistant's reply text
+ */
+async function completeText({ system, messages, maxTokens = 1024 }) {
+  const response = await xaiClient.chat.completions.create({
+    model:      env.XAI_MODEL,
+    max_tokens: maxTokens,
+    messages: [{ role: 'system', content: system }, ...messages],
+  });
+
+  return (response.choices[0]?.message?.content || '').trim();
+}
+
+module.exports = { xaiClient, completeJson, completeText };

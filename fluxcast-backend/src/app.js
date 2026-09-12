@@ -15,6 +15,9 @@ const recommendationRoutes = require('./routes/recommendation.routes');
 const simulateRoutes       = require('./routes/simulate.routes');
 const alertRoutes          = require('./routes/alerts.routes');
 const portfolioRoutes      = require('./routes/portfolio.routes');
+const analyticsRoutes      = require('./routes/analytics.routes');
+const chatRoutes           = require('./routes/chat.routes');
+const notificationRoutes   = require('./routes/notifications.routes');
 
 const app = express();
 
@@ -41,9 +44,12 @@ app.use('/v1/plants',             plantRoutes);
 app.use('/v1/plants/:plantId/weather',  weatherRoutes);
 app.use('/v1/plants/:plantId/forecast', forecastRoutes);
 app.use('/v1/plants/:plantId',          recommendationRoutes);
+app.use('/v1/plants/:plantId',          analyticsRoutes);
+app.use('/v1/plants/:plantId',          chatRoutes);
 app.use('/v1/simulate',           simulateRoutes);
 app.use('/v1/alerts',             alertRoutes);
 app.use('/v1/portfolio',          portfolioRoutes);
+app.use('/v1/notifications',      notificationRoutes);
 
 // ── Global error handler (must be last) ───────────────────────────────────
 app.use(errorHandler);
