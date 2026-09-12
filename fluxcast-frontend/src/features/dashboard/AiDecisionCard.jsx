@@ -52,26 +52,30 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
       {performance && (
         <>
           {/* Classification against the cron forecast */}
-          <div className="space-y-2 rounded-lg border border-line bg-surface p-3">
+          <div className="space-y-2.5 rounded-[3px] border border-line bg-surface p-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-ink-muted">Output vs prediction</span>
+              <span className="fc-label text-ink-muted">Output vs prediction</span>
               <StatusBadge
                 classification={performance.classification}
                 deltaPct={performance.deltaPct}
               />
             </div>
-            <dl className="grid grid-cols-2 gap-2 text-xs">
+            <dl className="grid grid-cols-2 gap-2">
               <div>
-                <dt className="text-ink-muted">Measured</dt>
-                <dd className="font-semibold text-ink">{formatMW(performance.actualMW)}</dd>
+                <dt className="fc-label text-ink-muted">Measured</dt>
+                <dd className="mt-1 font-mono text-base text-ink">
+                  {formatMW(performance.actualMW)}
+                </dd>
               </div>
               <div>
-                <dt className="text-ink-muted">Predicted</dt>
-                <dd className="font-semibold text-ink">{formatMW(performance.expectedMW)}</dd>
+                <dt className="fc-label text-ink-muted">Predicted</dt>
+                <dd className="mt-1 font-mono text-base text-ink">
+                  {formatMW(performance.expectedMW)}
+                </dd>
               </div>
             </dl>
             {performance.confidencePct !== null && performance.confidencePct !== undefined && (
-              <p className="text-xs text-ink-muted">
+              <p className="font-mono text-[11px] text-ink-muted">
                 Prediction confidence {performance.confidencePct}%
               </p>
             )}
@@ -80,7 +84,7 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
           {/* Attributed causes */}
           {reasons.length > 0 && (
             <div className="space-y-2">
-              <h3 className="text-xs font-semibold text-ink">Contributing factors</h3>
+              <h3 className="fc-label text-ink">Contributing factors</h3>
               <ul className="space-y-1.5">
                 {reasons.map((reason) => {
                   // The same reason list explains shortfalls and overshoots —
@@ -96,12 +100,12 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
                   return (
                     <li
                       key={reason.code}
-                      className="rounded-lg border border-line bg-surface-raised p-2.5"
+                      className="rounded-[3px] border border-line bg-surface-raised p-2.5"
                     >
                       <div className="flex items-start gap-1.5">
                         <Icon className={`mt-0.5 size-3.5 shrink-0 ${tone}`} aria-hidden="true" />
                         <div>
-                          <p className="text-xs font-medium text-ink">{humanise(reason.code)}</p>
+                          <p className="fc-label text-ink">{humanise(reason.code)}</p>
                           <p className="text-xs text-ink-muted">{reason.detail}</p>
                         </div>
                       </div>
@@ -115,8 +119,8 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
       )}
 
       {/* Recommended grid action */}
-      <div className="space-y-2 border-t border-line pt-3">
-        <h3 className="text-xs font-semibold text-ink">Recommended action</h3>
+      <div className="space-y-2.5 border-t border-line pt-3">
+        <h3 className="fc-label text-ink">Recommended action</h3>
 
         {recommendation.isLoading && <SkeletonList rows={1} />}
 
@@ -131,8 +135,8 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
         )}
 
         {recommendation.data && (
-          <div className="rounded-lg border border-brand/30 bg-severity-low-soft p-3">
-            <p className="text-sm font-semibold text-brand-dark">
+          <div className="rounded-[3px] border border-brand/30 bg-severity-low-soft p-3">
+            <p className="font-mono text-sm tracking-[0.04em] text-brand-dark uppercase">
               {humanise(recommendation.data.action)}
               {recommendation.data.amountMW ? ` · ${formatMW(recommendation.data.amountMW)}` : ''}
               {recommendation.data.durationHours
@@ -140,7 +144,7 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
                 : ''}
             </p>
             <p className="mt-1 text-xs text-ink">{recommendation.data.reasoning}</p>
-            <p className="mt-1.5 text-xs text-ink-muted">
+            <p className="mt-2 font-mono text-[11px] text-ink-muted">
               {formatRelative(recommendation.data.generatedAt)}
             </p>
           </div>
@@ -148,8 +152,8 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
       </div>
 
       {/* Notification escalations — display only */}
-      <div className="space-y-2 border-t border-line pt-3">
-        <h3 className="flex items-center gap-1.5 text-xs font-semibold text-ink">
+      <div className="space-y-2.5 border-t border-line pt-3">
+        <h3 className="fc-label flex items-center gap-2 text-ink">
           {emailConfigured ? (
             <Mail className="size-3.5 text-ink-muted" aria-hidden="true" />
           ) : (
@@ -172,11 +176,14 @@ export default function AiDecisionCard({ plantId, performance, performanceQuery,
             {escalations.map((note) => (
               <li key={note.id} className="flex items-start justify-between gap-2 text-xs">
                 <span className="min-w-0 text-ink">
-                  <span className="font-medium">{humanise(note.type)}</span>
-                  <span className="text-ink-muted"> · {formatRelative(note.createdAt)}</span>
+                  {humanise(note.type)}
+                  <span className="font-mono text-[11px] text-ink-muted">
+                    {' '}
+                    · {formatRelative(note.createdAt)}
+                  </span>
                 </span>
                 <span
-                  className={`shrink-0 rounded px-1.5 py-0.5 font-medium ${
+                  className={`fc-label shrink-0 rounded-[2px] px-1.5 py-0.5 ${
                     note.status === 'sent'
                       ? 'bg-status-usual-soft text-status-usual'
                       : note.status === 'failed'

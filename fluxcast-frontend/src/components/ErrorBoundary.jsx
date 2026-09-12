@@ -28,17 +28,17 @@ export default class ErrorBoundary extends Component {
     return (
       <div
         role="alert"
-        className="flex flex-col items-start gap-2 rounded-lg border border-severity-high/30 bg-severity-high-soft p-4"
+        className="flex flex-col items-start gap-2 rounded-[3px] border border-severity-high/35 bg-severity-high-soft p-4"
       >
-        <div className="flex items-center gap-2 text-severity-high">
-          <AlertTriangle className="size-4" aria-hidden="true" />
-          <p className="text-sm font-semibold">{this.props.title || 'This panel stopped working'}</p>
-        </div>
+        <p className="fc-label flex items-center gap-2 text-severity-high">
+          <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
+          {this.props.title || 'This panel stopped working'}
+        </p>
         <p className="text-sm text-ink">{this.state.error.message}</p>
         <button
           type="button"
           onClick={this.handleReset}
-          className="mt-1 rounded-md border border-severity-high/40 bg-surface-raised px-2.5 py-1.5 text-xs font-medium text-severity-high hover:bg-severity-high-soft"
+          className="fc-label mt-1 rounded-[2px] border border-severity-high/40 bg-surface-raised px-2.5 py-1.5 text-severity-high transition-colors hover:bg-severity-high/10"
         >
           Reload panel
         </button>

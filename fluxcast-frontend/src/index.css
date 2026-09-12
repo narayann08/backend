@@ -2,6 +2,19 @@
 @import 'leaflet/dist/leaflet.css';
 
 /*
+ * Brand webfaces, self-hosted and pinned to their Latin subsets. The console
+ * and the public page share one instrument voice, so these load app-wide:
+ * Instrument Serif sets page titles at a single weight, Plex Sans carries
+ * prose, and Plex Mono carries every label, readout and figure.
+ */
+@import '@fontsource/instrument-serif/latin-400.css';
+@import '@fontsource/instrument-serif/latin-400-italic.css';
+@import '@fontsource/ibm-plex-sans/latin-400.css';
+@import '@fontsource/ibm-plex-sans/latin-500.css';
+@import '@fontsource/ibm-plex-mono/latin-400.css';
+@import '@fontsource/ibm-plex-mono/latin-500.css';
+
+/*
  * Design tokens. Tailwind v4 is configured in CSS rather than a JS config file,
  * so every token below is usable as a utility (e.g. `bg-severity-high`,
  * `text-status-lower`).
@@ -25,20 +38,61 @@
   --color-status-unknown: #64748b;
   --color-status-unknown-soft: #f8fafc;
 
-  /* Chart series */
+  /* Chart series. The forecast and its envelope carry the solar accent; the
+     measured trace carries signal blue, exactly as on the public page. */
   --color-chart-actual: #0ea5e9;
-  --color-chart-forecast: #8b5cf6;
-  --color-chart-band: #c4b5fd;
+  --color-chart-forecast: #b45309;
+  --color-chart-band: #b45309;
   --color-chart-confidence: #059669;
 
   /* Product surface */
   --color-surface: #f8fafc;
   --color-surface-raised: #ffffff;
+  --color-surface-sunken: #eef2f7;
   --color-ink: #0f172a;
+  --color-ink-soft: #334155;
   --color-ink-muted: #64748b;
   --color-line: #e2e8f0;
   --color-brand: #0284c7;
   --color-brand-dark: #075985;
+  --color-signal: #0ea5e9;
+  --color-solar: #b45309;
+
+  /*
+   * One typographic system for the whole product. `tnum` on the mono face is
+   * what keeps columns of megawatts from shifting width as they tick.
+   */
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono--font-feature-settings: 'tnum' 1;
+  --font-display: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+
+  /*
+   * Marketing palette — an instrument face on the console's own light
+   * surface, so the public page and the product read as one system.
+   * Namespaced so it is purely additive: nothing here redefines a product
+   * token above, so the console cannot be restyled by the public site.
+   * Values are duplicated rather than aliased on purpose.
+   */
+  --color-mkt-surface: #f8fafc;
+  --color-mkt-raised: #ffffff;
+  --color-mkt-sunken: #eef2f7;
+  --color-mkt-line: #e2e8f0;
+  --color-mkt-ink: #0f172a;
+  --color-mkt-ink-soft: #334155;
+  --color-mkt-dim: #64748b;
+  /* Sky is the console's own brand; the deep stop is the one safe on surface
+     at small sizes. Rust carries the display accent, amber-700 so it clears AA
+     as text rather than only as decoration. */
+  --color-mkt-brand: #0284c7;
+  --color-mkt-brand-deep: #075985;
+  --color-mkt-signal: #0ea5e9;
+  --color-mkt-solar: #b45309;
+  --color-mkt-flare: #dc2626;
+
+  --font-mkt-display: 'Instrument Serif', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mkt-body: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mkt-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 html,
@@ -51,8 +105,60 @@ body {
   margin: 0;
   background-color: var(--color-surface);
   color: var(--color-ink);
-  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+}
+
+/* Page titles are the one place the console speaks in the display serif. */
+.fc-title {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/*
+ * The micro-label that names every panel, tile and field. One class rather
+ * than five utilities repeated across the console, so the voice can't drift.
+ */
+.fc-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.45;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Registration marks on a panel's four corners — an instrument face, not a card. */
+.fc-ticks::before,
+.fc-ticks::after {
+  content: '';
+  position: absolute;
+  width: 0.5rem;
+  height: 0.5rem;
+  pointer-events: none;
+  border-color: var(--color-brand);
+}
+
+.fc-ticks::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+
+.fc-ticks::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+
+/* Faint graph-paper ruling, for the pages that stand on open ground. */
+.fc-grid {
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.045) 1px, transparent 1px);
+  background-size: 72px 72px;
 }
 
 /* Leaflet paints its own panes; keep it under our overlays and popups. */
@@ -77,7 +183,7 @@ body {
   max-width: none;
   white-space: normal;
   border: 1px solid var(--color-line);
-  border-radius: 0.75rem;
+  border-radius: 3px;
   background: var(--color-surface-raised);
   color: var(--color-ink);
   box-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.2);
@@ -91,6 +197,133 @@ body {
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-brand);
   outline-offset: 2px;
+}
+
+/*
+ * The public page keeps its own namespaced palette. Values match the product
+ * tokens, so the two render as one system while neither can restyle the other.
+ */
+.mkt-root {
+  font-family: var(--font-mkt-body);
+  color: var(--color-mkt-ink);
+  background-color: var(--color-mkt-surface);
+}
+
+/* Keeps the ground consistent under a short page and on overscroll. */
+html:has(.mkt-root),
+body:has(.mkt-root) {
+  background-color: var(--color-mkt-surface);
+}
+
+.mkt-root :is(h1, h2, h3, .mkt-display) {
+  font-family: var(--font-mkt-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* Instrument voice: every label, readout and number that isn't prose. */
+.mkt-mono {
+  font-family: var(--font-mkt-mono);
+  font-feature-settings: 'tnum' 1;
+}
+
+/*
+ * Atmosphere. A faint graph-paper ruling under everything, so the dark is a
+ * surface with a measure on it rather than a flat fill.
+ */
+.mkt-grid {
+  background-image:
+    linear-gradient(to right, rgb(15 23 42 / 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(15 23 42 / 0.045) 1px, transparent 1px);
+  background-size: 72px 72px;
+}
+
+/* Colour cast from off-screen; keeps broad light areas from going flat. */
+.mkt-bloom-solar {
+  background-image: radial-gradient(62% 58% at 80% 16%, rgb(180 83 9 / 0.1), transparent 72%);
+}
+
+.mkt-bloom-signal {
+  background-image: radial-gradient(58% 52% at 10% 84%, rgb(2 132 199 / 0.12), transparent 72%);
+}
+
+/*
+ * Anchor CTAs scroll between bands. The viewport is the scroller, so this has
+ * to land on `html` — `:has()` keeps it to pages that actually mount marketing.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  html:has(.mkt-root) {
+    scroll-behavior: smooth;
+  }
+}
+
+.mkt-root [id] {
+  scroll-margin-top: 5rem;
+}
+
+/*
+ * Motion. Every rule below is inside a reduced-motion guard, and the resting
+ * state of each element is its final state — so with motion suppressed the
+ * page is simply already arrived, never blank.
+ */
+@keyframes mkt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Reads as a chart recorder laying the trace down left to right. */
+@keyframes mkt-sweep {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0 -2% 0 0);
+  }
+}
+
+@keyframes mkt-blip {
+  0%,
+  100% {
+    opacity: 0.75;
+  }
+  50% {
+    opacity: 0.15;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Page load: hero parts arrive in sequence via inline animation-delay. */
+  .mkt-rise {
+    opacity: 0;
+    animation: mkt-rise 0.8s cubic-bezier(0.22, 0.68, 0.24, 1) forwards;
+  }
+
+  .mkt-plot {
+    animation: mkt-sweep 1.7s cubic-bezier(0.22, 0.68, 0.24, 1) 0.35s both;
+  }
+
+  .mkt-blip {
+    animation: mkt-blip 2.4s ease-in-out infinite;
+  }
+
+  /*
+   * Scroll-driven reveals, where supported. No JS, no observer, and browsers
+   * without view() timelines simply render the section already in place.
+   */
+  @supports (animation-timeline: view()) {
+    .mkt-reveal {
+      opacity: 0;
+      animation: mkt-rise 1s linear both;
+      animation-timeline: view();
+      animation-range: entry 8% cover 30%;
+    }
+  }
 }
 
 @keyframes fluxcast-pulse {

@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProtectedRoute from './routes/ProtectedRoute';
 import DashboardLayout from './layouts/DashboardLayout';
 import AuthPage from './features/auth/AuthPage';
+import LandingPage from './features/marketing/LandingPage';
 import PlantsPage from './features/plants/PlantsPage';
 import NotFoundPage from './routes/NotFoundPage';
 import { Skeleton } from './components/States';
@@ -24,10 +25,10 @@ function RouteFallback() {
       <Skeleton className="h-7 w-56" />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          <Skeleton key={i} className="h-24 w-full rounded-[3px]" />
         ))}
       </div>
-      <Skeleton className="h-80 w-full rounded-xl" />
+      <Skeleton className="h-80 w-full rounded-[3px]" />
       <span className="sr-only">Loading…</span>
     </div>
   );
@@ -36,8 +37,13 @@ function RouteFallback() {
 /**
  * Route table (plan §2.4).
  *
- * `/plants` is the landing page after login; the three plant-scoped screens
- * share DashboardLayout, which supplies the sidebar and reads :plantId.
+ * `/` is the public marketing page; `/plants` is where an operator arrives
+ * after login. The three plant-scoped screens share DashboardLayout, which
+ * supplies the sidebar and reads :plantId.
+ *
+ * LandingPage is imported eagerly, not lazily: it is the first impression and
+ * must not cost a round-trip. That makes it a constraint that it never pulls
+ * in Recharts or Leaflet, which is why its chart is hand-authored SVG.
  */
 export default function App() {
   return (
@@ -88,7 +94,7 @@ export default function App() {
         />
       </Route>
 
-      <Route path="/" element={<Navigate to="/plants" replace />} />
+      <Route path="/" element={<LandingPage />} />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );

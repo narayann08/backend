@@ -55,12 +55,13 @@ export default function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <header className="flex flex-wrap items-end justify-between gap-3">
+      <header className="flex flex-wrap items-end justify-between gap-3 border-b border-line pb-4">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-ink">
-            {plant?.name || <Skeleton className="h-6 w-48" />}
+          <p className="fc-label text-brand-dark">Live operations</p>
+          <h1 className="fc-title mt-2 text-3xl text-ink">
+            {plant?.name || <Skeleton className="h-8 w-48" />}
           </h1>
-          <p className="text-sm text-ink-muted">
+          <p className="mt-1 text-sm text-ink-muted">
             Live generation, conditions and grid decisions
           </p>
         </div>
@@ -72,7 +73,7 @@ export default function DashboardPage() {
             weatherQuery.refetch();
             forecastQuery.refetch();
           }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink-muted transition hover:text-ink"
+          className="fc-label inline-flex items-center gap-2 rounded-[2px] border border-line bg-surface-raised px-3 py-2 text-ink-muted transition-colors hover:border-brand/50 hover:text-brand-dark"
         >
           <RefreshCw
             className={`size-3.5 ${liveQuery.isFetching ? 'animate-spin' : ''}`}
@@ -83,10 +84,12 @@ export default function DashboardPage() {
       </header>
 
       {noTelemetry && (
-        <div className="rounded-lg border border-severity-medium/30 bg-severity-medium-soft p-3 text-sm text-ink">
-          No telemetry has been recorded for this plant yet, so live output and the
-          forecast comparison are unavailable. Run{' '}
-          <code className="rounded bg-surface px-1 py-0.5 text-xs">npm run mock:telemetry:catchup</code>{' '}
+        <div className="rounded-[3px] border border-severity-medium/35 bg-severity-medium-soft p-3 text-sm text-ink">
+          No telemetry has been recorded for this plant yet, so live output and the forecast
+          comparison are unavailable. Run{' '}
+          <code className="rounded-[2px] bg-surface px-1 py-0.5 font-mono text-xs">
+            npm run mock:telemetry:catchup
+          </code>{' '}
           in the backend to populate readings.
         </div>
       )}
@@ -135,21 +138,26 @@ export default function DashboardPage() {
             useful on touch devices, where there is no hover.
           */}
           {performance && (
-            <div className="rounded-xl border border-line bg-surface-raised p-4 text-sm">
-              <h2 className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Site summary
-              </h2>
+            <div className="fc-ticks relative rounded-[3px] border border-line bg-surface-raised p-4 text-sm">
+              <h2 className="fc-label mb-2 text-ink-muted">Site summary</h2>
               <p className="text-ink">
                 {plant?.name} is generating{' '}
-                <strong>{formatMW(performance.actualMW)}</strong> against a forecast of{' '}
-                <strong>{formatMW(performance.expectedMW)}</strong> —{' '}
+                <strong className="font-mono font-normal">{formatMW(performance.actualMW)}</strong>{' '}
+                against a forecast of{' '}
+                <strong className="font-mono font-normal">
+                  {formatMW(performance.expectedMW)}
+                </strong>{' '}
+                —{' '}
                 <span className={style.text}>
                   {style.label.toLowerCase()}
                   {performance.deltaPct !== null && performance.deltaPct !== undefined
                     ? ` (${formatSignedPct(performance.deltaPct)})`
                     : ''}
                 </span>
-                {performance.measuredAt ? `, measured ${formatRelative(performance.measuredAt)}` : ''}.
+                {performance.measuredAt
+                  ? `, measured ${formatRelative(performance.measuredAt)}`
+                  : ''}
+                .
               </p>
               {topReasons.length > 0 && (
                 <ul className="mt-2 space-y-1 text-ink-muted">

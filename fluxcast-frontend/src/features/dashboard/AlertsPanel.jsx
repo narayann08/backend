@@ -20,20 +20,22 @@ function AlertRow({ alert, onAcknowledge, isAcknowledging }) {
   const style = severityStyle(alert.severity);
 
   return (
-    <li className={`rounded-lg border p-3 ${style.border} ${alert.acknowledged ? 'bg-surface' : style.bg}`}>
-      <div className="mb-1.5 flex items-start justify-between gap-2">
+    <li
+      className={`rounded-[3px] border p-3 ${style.border} ${alert.acknowledged ? 'bg-surface' : style.bg}`}
+    >
+      <div className="mb-2 flex items-start justify-between gap-2">
         <SeverityBadge severity={alert.severity} />
-        <time className="shrink-0 text-xs text-ink-muted" dateTime={alert.createdAt}>
+        <time className="shrink-0 font-mono text-[11px] text-ink-muted" dateTime={alert.createdAt}>
           {formatRelative(alert.createdAt)}
         </time>
       </div>
 
-      <p className="text-xs font-medium text-ink">{humanise(alert.type)}</p>
-      <p className="mt-0.5 text-xs text-ink-muted">{alert.message}</p>
+      <p className="fc-label text-ink">{humanise(alert.type)}</p>
+      <p className="mt-1 text-xs text-ink-muted">{alert.message}</p>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
+      <div className="mt-2.5 flex items-center justify-between gap-2">
         {alert.acknowledged ? (
-          <span className="inline-flex items-center gap-1 text-xs text-status-usual">
+          <span className="fc-label inline-flex items-center gap-1.5 text-status-usual">
             <CheckCheck className="size-3.5" aria-hidden="true" />
             Acknowledged
           </span>
@@ -42,7 +44,7 @@ function AlertRow({ alert, onAcknowledge, isAcknowledging }) {
             type="button"
             onClick={() => onAcknowledge(alert.id)}
             disabled={isAcknowledging}
-            className="inline-flex items-center gap-1 rounded-md border border-line bg-surface-raised px-2 py-1 text-xs font-medium text-ink-muted transition hover:text-ink disabled:opacity-50"
+            className="fc-label inline-flex items-center gap-1.5 rounded-[2px] border border-line bg-surface-raised px-2 py-1 text-ink-muted transition-colors hover:border-brand/50 hover:text-brand-dark disabled:opacity-50"
           >
             <Check className="size-3.5" aria-hidden="true" />
             Acknowledge
@@ -88,9 +90,9 @@ export default function AlertsPanel({ plantId, className = '' }) {
             type="button"
             onClick={() => setFilter(key)}
             aria-pressed={filter === key}
-            className={`flex-1 rounded-md px-2 py-1 text-xs font-medium transition ${
+            className={`fc-label flex-1 rounded-[2px] px-2 py-1.5 transition-colors ${
               filter === key
-                ? 'bg-brand text-white'
+                ? 'bg-ink text-white'
                 : 'text-ink-muted hover:bg-surface hover:text-ink'
             }`}
           >
@@ -102,7 +104,9 @@ export default function AlertsPanel({ plantId, className = '' }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {isLoading && <SkeletonList rows={3} />}
 
-        {isError && <ErrorState error={error} onRetry={refetch} title="Could not load alerts" compact />}
+        {isError && (
+          <ErrorState error={error} onRetry={refetch} title="Could not load alerts" compact />
+        )}
 
         {!isLoading && !isError && alerts.length === 0 && (
           <EmptyState

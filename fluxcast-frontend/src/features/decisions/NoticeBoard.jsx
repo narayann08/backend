@@ -20,21 +20,22 @@ function RecommendationCard({ recommendation }) {
   const Icon = presentation.icon;
 
   return (
-    <li className={`rounded-lg border p-4 ${presentation.border} ${presentation.bg}`}>
-      <div className="mb-2 flex items-start justify-between gap-3">
+    <li className={`rounded-[3px] border p-4 ${presentation.border} ${presentation.bg}`}>
+      <div className="mb-2.5 flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
           <Icon className={`size-4 shrink-0 ${presentation.tone}`} aria-hidden="true" />
-          <h3 className={`text-sm font-semibold ${presentation.tone}`}>
-            {humanise(recommendation.action)}
-          </h3>
+          <h3 className={`fc-label ${presentation.tone}`}>{humanise(recommendation.action)}</h3>
         </div>
-        <time className="shrink-0 text-xs text-ink-muted" dateTime={recommendation.generatedAt}>
+        <time
+          className="shrink-0 font-mono text-[11px] text-ink-muted"
+          dateTime={recommendation.generatedAt}
+        >
           {formatDateTime(recommendation.generatedAt)}
         </time>
       </div>
 
       {(recommendation.amountMW || recommendation.durationHours) && (
-        <p className="mb-1.5 text-xs font-medium text-ink">
+        <p className="mb-2 font-mono text-sm text-ink">
           {recommendation.amountMW ? formatMW(recommendation.amountMW) : null}
           {recommendation.amountMW && recommendation.durationHours ? ' · ' : null}
           {recommendation.durationHours ? `${recommendation.durationHours}h duration` : null}
@@ -48,7 +49,7 @@ function RecommendationCard({ recommendation }) {
           {recommendation.constraintsConsidered.map((constraint) => (
             <li
               key={constraint}
-              className="rounded-full border border-line bg-surface-raised px-2 py-0.5 text-xs text-ink-muted"
+              className="fc-label rounded-[2px] border border-line bg-surface-raised px-2 py-0.5 text-ink-muted"
             >
               {humanise(constraint)}
             </li>
@@ -82,7 +83,12 @@ export default function NoticeBoard({ plantId, className = '' }) {
       {isLoading && <SkeletonList rows={3} />}
 
       {isError && (
-        <ErrorState error={error} onRetry={refetch} title="Could not load recommendations" compact />
+        <ErrorState
+          error={error}
+          onRetry={refetch}
+          title="Could not load recommendations"
+          compact
+        />
       )}
 
       {!isLoading && !isError && recommendations.length === 0 && (

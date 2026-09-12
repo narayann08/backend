@@ -1,5 +1,12 @@
 import {
-  Area, AreaChart, CartesianGrid, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
 } from 'recharts';
 
 import { formatDateTime, formatPct } from '../../utils/format';
@@ -10,10 +17,10 @@ function ChartTooltip({ active, payload, label }) {
   if (value === null || value === undefined) return null;
 
   return (
-    <div className="rounded-lg border border-line bg-surface-raised p-3 text-xs shadow-lg">
-      <p className="mb-1 font-semibold text-ink">{formatDateTime(label)}</p>
-      <p className="text-ink">
-        Confidence <span className="font-medium">{formatPct(value)}</span>
+    <div className="rounded-[3px] border border-line bg-surface-raised p-3 text-xs shadow-[0_18px_44px_-28px_rgb(15_23_42/0.6)]">
+      <p className="fc-label mb-1.5 text-ink">{formatDateTime(label)}</p>
+      <p className="font-mono text-ink">
+        Confidence <span className="text-chart-confidence">{formatPct(value)}</span>
       </p>
     </div>
   );
@@ -27,7 +34,7 @@ function ChartTooltip({ active, payload, label }) {
 export default function ConfidenceChart({ points }) {
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <AreaChart data={points} margin={{ top: 8, right: 12, bottom: 8, left: 4 }}>
+      <AreaChart data={points} margin={{ top: 8, right: 48, bottom: 8, left: 4 }}>
         <defs>
           <linearGradient id="confidenceFill" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="var(--color-chart-confidence)" stopOpacity={0.35} />
@@ -41,12 +48,14 @@ export default function ConfidenceChart({ points }) {
           tickFormatter={formatDateTime}
           stroke="var(--color-ink-muted)"
           fontSize={11}
+          fontFamily="var(--font-mono)"
           minTickGap={40}
         />
         <YAxis
           domain={[0, 100]}
           stroke="var(--color-ink-muted)"
           fontSize={11}
+          fontFamily="var(--font-mono)"
           width={54}
           tickFormatter={(v) => `${v}%`}
         />
@@ -59,7 +68,11 @@ export default function ConfidenceChart({ points }) {
           label={{
             value: 'Low confidence',
             position: 'insideTopLeft',
-            style: { fontSize: 10, fill: 'var(--color-severity-medium)' },
+            style: {
+              fontSize: 10,
+              fontFamily: 'var(--font-mono)',
+              fill: 'var(--color-severity-medium)',
+            },
           }}
         />
 

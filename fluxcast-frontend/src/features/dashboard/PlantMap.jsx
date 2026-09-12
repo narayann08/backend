@@ -68,42 +68,44 @@ function TooltipBody({ plant, live, performance, forecast }) {
   return (
     <div className="w-64 space-y-2.5 text-xs">
       <div>
-        <p className="text-sm font-semibold text-ink">{plant.name}</p>
-        <p className="text-ink-muted">
+        <p className="fc-title text-lg leading-tight text-ink">{plant.name}</p>
+        <p className="font-mono text-[11px] text-ink-muted">
           {plant.type === 'wind' ? 'Wind farm' : 'Solar park'} · {plant.capacityMW} MW capacity
         </p>
       </div>
 
       <div className="space-y-1 border-t border-line pt-2">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-ink-muted">Generating now</span>
-          <span className="text-sm font-semibold text-ink">{formatMW(live?.generationMW)}</span>
+          <span className="fc-label text-ink-muted">Generating now</span>
+          <span className="font-mono text-sm text-ink">{formatMW(live?.generationMW)}</span>
         </div>
         {live?.timestamp && (
-          <p className="text-right text-[11px] text-ink-muted">measured {formatRelative(live.timestamp)}</p>
+          <p className="text-right font-mono text-[11px] text-ink-muted">
+            measured {formatRelative(live.timestamp)}
+          </p>
         )}
         {live?.capacityFactorPct !== null && live?.capacityFactorPct !== undefined && (
           <div className="flex items-baseline justify-between gap-2">
-            <span className="text-ink-muted">Capacity factor</span>
-            <span className="font-medium text-ink">{formatPct(live.capacityFactorPct)}</span>
+            <span className="fc-label text-ink-muted">Capacity factor</span>
+            <span className="font-mono text-ink">{formatPct(live.capacityFactorPct)}</span>
           </div>
         )}
       </div>
 
       <div className="space-y-1 border-t border-line pt-2">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-ink-muted">Forecast for this hour</span>
-          <span className="font-medium text-ink">{formatMW(performance?.expectedMW)}</span>
+          <span className="fc-label text-ink-muted">Forecast this hour</span>
+          <span className="font-mono text-ink">{formatMW(performance?.expectedMW)}</span>
         </div>
         <div className="flex items-baseline justify-between gap-2">
-          <span className="text-ink-muted">Next 24h peak</span>
-          <span className="font-medium text-ink">
+          <span className="fc-label text-ink-muted">Next 24h peak</span>
+          <span className="font-mono text-ink">
             {peak ? formatMW(peak.expectedMW) : 'No forecast yet'}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-ink-muted">vs forecast</span>
-          <span className={`font-semibold ${style.text}`}>
+          <span className="fc-label text-ink-muted">vs forecast</span>
+          <span className={`font-mono ${style.text}`}>
             {style.label}
             {performance?.deltaPct !== null && performance?.deltaPct !== undefined
               ? ` (${formatSignedPct(performance.deltaPct)})`
@@ -115,7 +117,7 @@ function TooltipBody({ plant, live, performance, forecast }) {
       {reasons.length > 0 && (
         <div className="space-y-1 border-t border-line pt-2">
           {/* The same reason list explains a shortfall or an overshoot — label it accordingly. */}
-          <p className={`font-semibold ${style.text}`}>
+          <p className={`fc-label ${style.text}`}>
             {classification === 'lower' ? 'Why output is down' : 'Contributing factors'}
           </p>
           <ul className="space-y-1">
@@ -181,12 +183,7 @@ export default function PlantMap({ plant, live, performance, forecast, weather }
 
       <Marker position={position} icon={icon}>
         <Tooltip direction="top" opacity={1} className="fluxcast-tooltip">
-          <TooltipBody
-            plant={plant}
-            live={live}
-            performance={performance}
-            forecast={forecast}
-          />
+          <TooltipBody plant={plant} live={live} performance={performance} forecast={forecast} />
         </Tooltip>
       </Marker>
     </MapContainer>

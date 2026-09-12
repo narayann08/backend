@@ -20,15 +20,20 @@ export default function DecisionsPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Decisions</h1>
-        <p className="text-sm text-ink-muted">
+      <header className="border-b border-line pb-4">
+        <p className="fc-label text-brand-dark">Agent pipeline</p>
+        <h1 className="fc-title mt-2 text-3xl text-ink">Decisions</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           Recommended actions from the agent pipeline, and a plant-scoped assistant
         </p>
       </header>
 
       {/* Current rationale */}
-      <Card title="Current rationale" subtitle="From the Explainability Agent" icon={MessageSquareText}>
+      <Card
+        title="Current rationale"
+        subtitle="From the Explainability Agent"
+        icon={MessageSquareText}
+      >
         {explanation.isLoading && (
           <div className="space-y-2">
             <Skeleton className="h-3 w-full" />
@@ -54,7 +59,7 @@ export default function DecisionsPage() {
                 {explanation.data.factors.map((factor) => (
                   <li
                     key={factor}
-                    className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-ink-muted"
+                    className="fc-label rounded-[2px] border border-line bg-surface px-2.5 py-1 text-ink-muted"
                   >
                     {humanise(factor)}
                   </li>
@@ -71,12 +76,7 @@ export default function DecisionsPage() {
         </ErrorBoundary>
 
         <ErrorBoundary title="The chat panel failed">
-          <ChatBox
-            key={plantId}
-            plantId={plantId}
-            plantName={plant?.name}
-            className="h-[38rem]"
-          />
+          <ChatBox key={plantId} plantId={plantId} plantName={plant?.name} className="h-[38rem]" />
         </ErrorBoundary>
       </div>
     </div>

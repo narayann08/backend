@@ -18,8 +18,8 @@ function MessageBubble({ message }) {
   return (
     <li className={`flex gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
       <span
-        className={`grid size-7 shrink-0 place-items-center rounded-full ${
-          isUser ? 'bg-brand text-white' : 'bg-surface text-ink-muted'
+        className={`grid size-7 shrink-0 place-items-center rounded-[2px] ${
+          isUser ? 'bg-ink text-white' : 'bg-surface-sunken text-ink-muted'
         }`}
       >
         {isUser ? (
@@ -30,23 +30,25 @@ function MessageBubble({ message }) {
       </span>
 
       <div
-        className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+        className={`max-w-[80%] rounded-[3px] px-3 py-2 text-sm ${
           isUser
-            ? 'bg-brand text-white'
+            ? 'bg-ink text-white'
             : message.isError
-              ? 'border border-severity-high/30 bg-severity-high-soft text-ink'
+              ? 'border border-severity-high/35 bg-severity-high-soft text-ink'
               : 'border border-line bg-surface-raised text-ink'
         }`}
       >
         {message.isError && (
-          <span className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-severity-high">
+          <span className="fc-label mb-1.5 flex items-center gap-1.5 text-severity-high">
             <AlertTriangle className="size-3.5" aria-hidden="true" />
             Assistant unavailable
           </span>
         )}
         <p className="whitespace-pre-wrap">{message.content}</p>
         {message.detail && <p className="mt-1 text-xs text-ink-muted">{message.detail}</p>}
-        <time className={`mt-1 block text-xs ${isUser ? 'text-white/70' : 'text-ink-muted'}`}>
+        <time
+          className={`mt-1.5 block font-mono text-[11px] ${isUser ? 'text-white/60' : 'text-ink-muted'}`}
+        >
           {formatTime(message.at)}
         </time>
       </div>
@@ -139,7 +141,7 @@ export default function ChatBox({ plantId, plantName, className = '' }) {
                   <button
                     type="button"
                     onClick={() => send(suggestion)}
-                    className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-left text-sm text-ink transition hover:border-brand hover:bg-surface-raised"
+                    className="w-full rounded-[3px] border border-line bg-surface px-3 py-2.5 text-left text-sm text-ink transition-colors hover:border-brand hover:bg-surface-raised"
                   >
                     {suggestion}
                   </button>
@@ -153,8 +155,8 @@ export default function ChatBox({ plantId, plantName, className = '' }) {
               <MessageBubble key={index} message={message} />
             ))}
             {chat.isPending && (
-              <li className="flex items-center gap-2 text-sm text-ink-muted">
-                <span className="grid size-7 place-items-center rounded-full bg-surface">
+              <li className="flex items-center gap-2.5 text-sm text-ink-muted">
+                <span className="grid size-7 place-items-center rounded-[2px] bg-surface-sunken">
                   <Bot className="size-3.5" aria-hidden="true" />
                 </span>
                 <span className="animate-soft-pulse">Thinking…</span>
@@ -181,12 +183,12 @@ export default function ChatBox({ plantId, plantName, className = '' }) {
           onChange={(event) => setInput(event.target.value)}
           placeholder="Ask about output, forecasts or alerts…"
           disabled={chat.isPending}
-          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted disabled:opacity-60"
+          className="min-w-0 flex-1 rounded-[2px] border border-line bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-ink-muted disabled:opacity-60"
         />
         <button
           type="submit"
           disabled={chat.isPending || !input.trim()}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
+          className="fc-label inline-flex shrink-0 items-center gap-2 rounded-[2px] bg-ink px-3.5 py-3 text-white transition-colors hover:bg-brand-dark disabled:opacity-50"
         >
           <Send className="size-4" aria-hidden="true" />
           <span className="sr-only sm:not-sr-only">Send</span>

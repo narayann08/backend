@@ -28,7 +28,8 @@ npm install
 npm run dev                      # http://localhost:5173
 ```
 
-Open http://localhost:5173, pick a role, pick a plant.
+Open http://localhost:5173. That is the public landing page; **Live demo** takes
+you to the role picker, then the plant picker.
 
 > Run `npm run mock:telemetry:catchup` before a demo. Seeded telemetry stops at
 > seed time, and without fresh readings the live panel and history chart have
@@ -62,6 +63,7 @@ src/
   api/         axios instance + one module per resource, plus polling config
   components/  shared UI: Card, StatusBadge, States, ErrorBoundary
   features/
+    marketing/ public landing page at `/` — sections, brand primitives, SVG mockups
     auth/      role-selection screen
     plants/    plant picker
     dashboard/ map, alerts panel, AI decision card, stat tiles
@@ -73,6 +75,44 @@ src/
   store/       Zustand: auth session, selected plant
   utils/       formatting and the status/severity colour vocabulary
 ```
+
+---
+
+## Landing page
+
+`/` is a public marketing page (`src/features/marketing/`); the console lives
+behind `/auth`. Three decisions there are deliberate and easy to undo by
+accident:
+
+**The marketing palette is namespaced.** Its tokens are `--color-mkt-*`, added
+to the same `@theme` block in `index.css` as the product tokens. They are purely
+additive — nothing redefines `--color-brand` or `--color-surface` — so the
+console cannot be restyled by a change to the public site. Tailwind v4's
+`@theme` is top-level-only, so a scoped block was not an option without giving
+up utility generation entirely.
+
+**The brand webfonts are scoped, not global.** Poppins and Inter are self-hosted
+via `@fontsource` and applied only under `.mkt-root`. The console keeps the
+system stack on purpose: Inter's metrics differ enough to reflow every truncated
+label and to move the Recharts axes, which size themselves by measuring rendered
+text. Poppins is pinned to its Latin subsets — the default entry point also
+bundles Devanagari, which this page never renders.
+
+**`LandingPage` is imported eagerly, not lazily.** It is the first impression
+and should not cost a round-trip. That makes it a standing constraint that it
+never import Recharts or Leaflet, which is why its forecast card is hand-authored
+SVG (`marketing/graphics/`) rather than a real chart. Verify with `npm run build`:
+those two libraries should stay in the `DashboardPage`/`HistoryPage` chunks.
+
+Hero footage: `public/marketing/hero-video.mp4`, an aerial solar-field clip, muted
+and looped as ambient motion. `hero-video.jpg` is its poster frame — shown before
+playback starts and if the video never loads, so the hero is structurally the
+same either way. `src` is set directly on the `<video>` element rather than via
+a `<source>` child; there is only one format, so a fallback list buys nothing.
+
+The "Built on trusted data" row lists only Open-Meteo and NASA POWER, the feeds
+the backend actually reads. MOSDAC is deliberately absent: its connector is a
+stub that delegates to Open-Meteo, so naming ISRO there would be a false claim.
 
 ---
 

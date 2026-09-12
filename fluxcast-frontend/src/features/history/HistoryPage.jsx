@@ -17,10 +17,10 @@ const NO_POINTS = [];
 
 function SummaryStat({ label, value, hint }) {
   return (
-    <div className="rounded-lg border border-line bg-surface p-3">
-      <p className="text-xs text-ink-muted">{label}</p>
-      <p className="text-lg font-semibold text-ink">{value}</p>
-      {hint && <p className="text-xs text-ink-muted">{hint}</p>}
+    <div className="fc-ticks relative rounded-[3px] border border-line bg-surface-raised p-4">
+      <p className="fc-label text-ink-muted">{label}</p>
+      <p className="mt-2.5 font-mono text-xl leading-none text-ink">{value}</p>
+      {hint && <p className="mt-2 text-xs text-ink-muted">{hint}</p>}
     </div>
   );
 }
@@ -73,9 +73,10 @@ export default function HistoryPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4 sm:p-6">
-      <header>
-        <h1 className="text-xl font-bold tracking-tight text-ink">Plant history</h1>
-        <p className="text-sm text-ink-muted">
+      <header className="border-b border-line pb-4">
+        <p className="fc-label text-brand-dark">Recorded performance</p>
+        <h1 className="fc-title mt-2 text-3xl text-ink">Plant history</h1>
+        <p className="mt-1 text-sm text-ink-muted">
           How past forecasts compared with what the plant actually generated
         </p>
       </header>
@@ -87,9 +88,7 @@ export default function HistoryPage() {
         onCustomChange={handleCustom}
       />
 
-      {isError && (
-        <ErrorState error={error} onRetry={refetch} title="Could not load history" />
-      )}
+      {isError && <ErrorState error={error} onRetry={refetch} title="Could not load history" />}
 
       {!isError && (
         <>
@@ -97,24 +96,23 @@ export default function HistoryPage() {
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             {isLoading ? (
               Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="rounded-lg border border-line bg-surface p-3">
-                  <Skeleton className="mb-2 h-3 w-20" />
-                  <Skeleton className="h-5 w-16" />
+                <div key={i} className="rounded-[3px] border border-line bg-surface-raised p-4">
+                  <Skeleton className="mb-3 h-3 w-20" />
+                  <Skeleton className="h-6 w-16" />
                 </div>
               ))
             ) : (
               <>
                 <SummaryStat
                   label="Energy generated"
-                  value={summary?.actualTotalMWh !== null && summary?.actualTotalMWh !== undefined
-                    ? `${summary.actualTotalMWh} MWh`
-                    : '—'}
+                  value={
+                    summary?.actualTotalMWh !== null && summary?.actualTotalMWh !== undefined
+                      ? `${summary.actualTotalMWh} MWh`
+                      : '—'
+                  }
                   hint={`${summary?.hours ?? 0} hours in range`}
                 />
-                <SummaryStat
-                  label="Peak output"
-                  value={formatMW(summary?.peakActualMW)}
-                />
+                <SummaryStat label="Peak output" value={formatMW(summary?.peakActualMW)} />
                 <SummaryStat
                   label="Mean absolute error"
                   value={formatMW(summary?.maeMW)}
@@ -127,9 +125,11 @@ export default function HistoryPage() {
                 <SummaryStat
                   label="Avg confidence"
                   value={formatPct(summary?.avgConfidencePct)}
-                  hint={summary?.mapePct !== null && summary?.mapePct !== undefined
-                    ? `MAPE ${formatPct(summary.mapePct)}`
-                    : undefined}
+                  hint={
+                    summary?.mapePct !== null && summary?.mapePct !== undefined
+                      ? `MAPE ${formatPct(summary.mapePct)}`
+                      : undefined
+                  }
                 />
               </>
             )}
@@ -142,7 +142,7 @@ export default function HistoryPage() {
             icon={LineChartIcon}
             actions={
               isFetching && !isLoading ? (
-                <span className="text-xs text-ink-muted">Updating…</span>
+                <span className="fc-label text-ink-muted">Updating…</span>
               ) : null
             }
           >
@@ -166,8 +166,11 @@ export default function HistoryPage() {
                 <>
                   <ForecastVsActualChart points={points} />
                   {forecastCoverageIsThin && (
-                    <p className="mt-2 flex items-start gap-1.5 rounded-lg border border-severity-medium/30 bg-severity-medium-soft p-2.5 text-xs text-ink">
-                      <Info className="mt-0.5 size-3.5 shrink-0 text-severity-medium" aria-hidden="true" />
+                    <p className="mt-3 flex items-start gap-2 rounded-[3px] border border-severity-medium/35 bg-severity-medium-soft p-3 text-xs text-ink">
+                      <Info
+                        className="mt-0.5 size-3.5 shrink-0 text-severity-medium"
+                        aria-hidden="true"
+                      />
                       {forecastHours === 0
                         ? 'Only measured output is plotted for this range.'
                         : `Only ${forecastHours} of ${points.length} hours in this range have a forecast to compare against, so the forecast line covers a small slice of the chart.`}{' '}
@@ -188,8 +191,8 @@ export default function HistoryPage() {
           >
             <p className="mb-3 text-xs text-ink-muted">
               Confidence the forecasting agent attached to each hour it predicted. Sustained values
-              near or below 50% mean the model was working with degraded sensor data or thin
-              history — treat those forecasts with more caution.
+              near or below 50% mean the model was working with degraded sensor data or thin history
+              — treat those forecasts with more caution.
             </p>
 
             <ErrorBoundary title="The confidence chart failed to render">

@@ -6,9 +6,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="FluxCast — renewable generation forecasting and grid decision support for solar and wind plant operators."
+      content="FluxCast turns weather and satellite data into 24–72 hour generation forecasts and clear grid decisions, so clean energy is used, not wasted."
     />
+    <meta name="theme-color" content="#f8fafc" />
     <title>FluxCast — Generation Forecasting &amp; Grid Decisions</title>
+
+    <!--
+      One static head serves both the landing page and the console; per-route
+      meta would need a helmet-style dependency, which is not worth a new
+      package here. These values describe the public page.
+    -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="FluxCast — Generation Forecasting &amp; Grid Decisions" />
+    <meta
+      property="og:description"
+      content="Know what your renewable plants will generate — before the weather decides for you."
+    />
+    <meta property="og:image" content="/marketing/hero-video.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!--
+      The hero <video>'s poster is its first paint, and React only renders the
+      element after the bundle parses, so without this it is discovered late.
+      Cost of the shared head: the console preloads an image it never shows —
+      one small jpg, once per session. Worth it for the public front door.
+    -->
+    <link rel="preload" as="image" href="/marketing/hero-video.jpg" fetchpriority="high" />
   </head>
   <body>
     <div id="root"></div>

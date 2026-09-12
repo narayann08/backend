@@ -20,21 +20,17 @@ export default function DateRangePicker({ preset, range, onPresetChange, onCusto
   }
 
   return (
-    <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface-raised p-3">
-      <div
-        role="group"
-        aria-label="Quick date ranges"
-        className="flex flex-wrap gap-1"
-      >
+    <div className="fc-ticks relative flex flex-wrap items-end gap-4 rounded-[3px] border border-line bg-surface-raised p-3">
+      <div role="group" aria-label="Quick date ranges" className="flex flex-wrap gap-1">
         {RANGE_PRESETS.map((option) => (
           <button
             key={option.key}
             type="button"
             onClick={() => onPresetChange(option)}
             aria-pressed={preset === option.key}
-            className={`rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+            className={`fc-label rounded-[2px] px-3 py-2 transition-colors ${
               preset === option.key
-                ? 'bg-brand text-white'
+                ? 'bg-ink text-white'
                 : 'text-ink-muted hover:bg-surface hover:text-ink'
             }`}
           >
@@ -44,24 +40,24 @@ export default function DateRangePicker({ preset, range, onPresetChange, onCusto
       </div>
 
       <div className="flex flex-wrap items-end gap-2">
-        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+        <label className="fc-label flex flex-col gap-1.5 text-ink-muted">
           From
           <input
             type="datetime-local"
             value={toInputValue(range.from)}
             max={toInputValue(range.to)}
             onChange={(e) => handleCustom('from', e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-xs text-ink"
+            className="rounded-[2px] border border-line bg-surface px-2.5 py-1.5 font-mono text-xs tracking-normal text-ink normal-case"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-ink-muted">
+        <label className="fc-label flex flex-col gap-1.5 text-ink-muted">
           To
           <input
             type="datetime-local"
             value={toInputValue(range.to)}
             min={toInputValue(range.from)}
             onChange={(e) => handleCustom('to', e.target.value)}
-            className="rounded-md border border-line bg-surface-raised px-2 py-1 text-xs text-ink"
+            className="rounded-[2px] border border-line bg-surface px-2.5 py-1.5 font-mono text-xs tracking-normal text-ink normal-case"
           />
         </label>
       </div>

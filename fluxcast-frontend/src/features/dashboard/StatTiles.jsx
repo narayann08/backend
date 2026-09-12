@@ -5,20 +5,20 @@ import { Skeleton } from '../../components/States';
 import { formatMW, formatPct, formatRelative } from '../../utils/format';
 import { weatherCondition } from '../../utils/status';
 
-function Tile({ icon: Icon, label, value, hint, children, loading }) {
+function Tile({ icon: Icon, label, value, hint, children, loading, valueClassName = 'text-2xl' }) {
   return (
-    <div className="rounded-xl border border-line bg-surface-raised p-4 shadow-sm">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-muted">
-        <Icon className="size-3.5" aria-hidden="true" />
+    <div className="fc-ticks relative rounded-[3px] border border-line bg-surface-raised p-4 shadow-[0_18px_44px_-36px_rgb(15_23_42/0.5)]">
+      <div className="fc-label mb-3 flex items-center gap-2 text-ink-muted">
+        <Icon className="size-3.5 shrink-0" aria-hidden="true" />
         {label}
       </div>
       {loading ? (
-        <Skeleton className="h-6 w-24" />
+        <Skeleton className="h-7 w-24" />
       ) : (
-        <p className="text-xl font-semibold text-ink">{value}</p>
+        <p className={`font-mono leading-tight text-ink ${valueClassName}`}>{value}</p>
       )}
       {children}
-      {hint && !loading && <p className="mt-1 text-xs text-ink-muted">{hint}</p>}
+      {hint && !loading && <p className="mt-2 text-xs text-ink-muted">{hint}</p>}
     </div>
   );
 }
@@ -48,7 +48,7 @@ export default function StatTiles({ live, performance, weather, isLoading }) {
         loading={isLoading}
       >
         {!isLoading && performance && (
-          <div className="mt-1.5">
+          <div className="mt-2.5">
             <StatusBadge
               classification={performance.classification}
               deltaPct={performance.deltaPct}
@@ -68,6 +68,7 @@ export default function StatTiles({ live, performance, weather, isLoading }) {
       <Tile
         icon={CloudSun}
         label="Conditions"
+        valueClassName="text-lg"
         value={weather?.conditionLabel || condition.label}
         hint={
           weather?.current
