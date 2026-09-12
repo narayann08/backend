@@ -1,0 +1,45 @@
+{
+  "name": "fluxcast-backend",
+  "version": "1.0.0",
+  "description": "AI-powered renewable generation forecasting and grid decision platform backend",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "seed": "node src/scripts/seed.js",
+    "test": "jest --runInBand --forceExit --detectOpenHandles",
+    "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
+    "test:all": "node test_executor.js"
+  },
+  "dependencies": {
+    "@langchain/core": "^0.2.0",
+    "@langchain/langgraph": "^0.0.34",
+    "@langchain/openai": "^0.2.0",
+    "axios": "^1.7.0",
+    "bcrypt": "^5.1.1",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-openapi-validator": "^5.3.5",
+    "express-rate-limit": "^7.3.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "langchain": "^0.2.0",
+    "mongoose": "^8.4.1",
+    "morgan": "^1.10.0",
+    "node-cron": "^3.0.3",
+    "openai": "^4.52.0",
+    "socket.io": "^4.7.5",
+    "uuid": "^10.0.0",
+    "winston": "^3.13.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.1.4",
+    "supertest": "^7.0.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": ["**/tests/**/*.test.js"]
+  }
+}

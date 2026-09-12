@@ -1,0 +1,748 @@
+openapi: 3.0.3
+info:
+  title: Renewable Generation Forecasting & Grid Decision Platform API
+  description: >
+    REST API for the AI-powered renewable generation forecasting and grid
+    decision-support platform. Provides plant management, weather data,
+    forecasts with uncertainty bounds, agentic recommendations, what-if
+    simulation, and real-time alerting.
+  version: 0.1.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production (placeholder)
+  - url: http://localhost:5000/v1
+    description: Local development
+
+tags:
+  - name: Plants
+    description: Manage renewable plant sites (solar/wind)
+  - name: Weather
+    description: Weather and satellite data for a plant location
+  - name: Forecasts
+    description: Generation forecasts with uncertainty
+  - name: Recommendations
+    description: Agent-generated grid-decision recommendations
+  - name: Simulation
+    description: What-if scenario simulation
+  - name: Alerts
+    description: Real-time risk alerts
+  - name: Portfolio
+    description: Multi-plant / portfolio-level views
+  - name: Auth
+    description: Authentication
+
+paths:
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Log in and receive an access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token:
+                    type: string
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /plants:
+    get:
+      tags: [Plants]
+      summary: List all plants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter by plant type
+          schema:
+            type: string
+            enum: [solar, wind]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: List of plants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                  plants:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Plant'
+    post:
+      tags: [Plants]
+      summary: Register a new plant
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantInput'
+      responses:
+        '201':
+          description: Plant created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /plants/{plantId}:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Plants]
+      summary: Get a single plant's details
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Plant details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    patch:
+      tags: [Plants]
+      summary: Update plant details
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlantInput'
+      responses:
+        '200':
+          description: Updated plant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Plant'
+    delete:
+      tags: [Plants]
+      summary: Remove a plant
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: Deleted successfully
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plants/{plantId}/telemetry:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Plants]
+      summary: Get recent telemetry (last 3–4 days) for a plant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: days
+          in: query
+          schema:
+            type: integer
+            default: 4
+      responses:
+        '200':
+          description: Telemetry time series
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TelemetryPoint'
+    post:
+      tags: [Plants]
+      summary: Ingest a new telemetry reading (from SCADA/inverter feed)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryPoint'
+      responses:
+        '201':
+          description: Telemetry recorded
+
+  /plants/{plantId}/weather:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Weather]
+      summary: Get reconciled weather data for a plant's coordinates
+      description: >
+        Returns weather data combined from Open-Meteo (https://api.open-meteo.com/v1/forecast)
+        and NASA POWER sources for the plant's location, reconciled by the
+        Weather-Reasoning Agent.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: hours
+          in: query
+          description: Forecast horizon in hours (max 72)
+          schema:
+            type: integer
+            default: 72
+            maximum: 72
+      responses:
+        '200':
+          description: Weather forecast data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherSnapshot'
+
+  /plants/{plantId}/forecast:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Forecasts]
+      summary: Get the latest generation forecast for a plant
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: horizon
+          in: query
+          description: Forecast horizon in hours
+          schema:
+            type: integer
+            default: 24
+            enum: [24, 48, 72]
+      responses:
+        '200':
+          description: Generation forecast with uncertainty bounds
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForecastResult'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags: [Forecasts]
+      summary: Trigger a new forecast run for a plant
+      description: >
+        Kicks off the LangGraph agent workflow (Weather-Reasoning →
+        Forecasting → Decision → Explainability) for this plant.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                horizon:
+                  type: integer
+                  default: 24
+                  enum: [24, 48, 72]
+      responses:
+        '202':
+          description: Forecast run accepted and queued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  jobId:
+                    type: string
+                  status:
+                    type: string
+                    example: queued
+
+  /plants/{plantId}/recommendation:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Recommendations]
+      summary: Get the latest recommended action for a plant
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recommendation from the Decision Agent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Recommendation'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /plants/{plantId}/explain:
+    parameters:
+      - $ref: '#/components/parameters/PlantId'
+    get:
+      tags: [Recommendations]
+      summary: Get a plain-language explanation of the current forecast/recommendation
+      description: Output of the Explainability Agent, used for the dashboard root-cause panel.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Natural-language explanation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  summary:
+                    type: string
+                    example: "Generation is expected to drop 20% this afternoon due to incoming cloud cover, clearing by 6 PM."
+                  factors:
+                    type: array
+                    items:
+                      type: string
+
+  /simulate:
+    post:
+      tags: [Simulation]
+      summary: Run a what-if simulation
+      description: >
+        Re-runs the agent workflow with modified assumptions (e.g., demand
+        spike, equipment outage) without affecting stored forecasts.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SimulationRequest'
+      responses:
+        '200':
+          description: Simulated outcome
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SimulationResult'
+
+  /alerts:
+    get:
+      tags: [Alerts]
+      summary: List active alerts across all plants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: severity
+          in: query
+          schema:
+            type: string
+            enum: [low, medium, high]
+        - name: plantId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of alerts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Alert'
+
+  /alerts/{alertId}/acknowledge:
+    parameters:
+      - name: alertId
+        in: path
+        required: true
+        schema:
+          type: string
+    post:
+      tags: [Alerts]
+      summary: Acknowledge an alert
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Alert acknowledged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Alert'
+
+  /portfolio/forecast:
+    get:
+      tags: [Portfolio]
+      summary: Get aggregated forecast across all (or selected) plants
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: plantIds
+          in: query
+          description: Comma-separated list of plant IDs; omit for all plants
+          schema:
+            type: string
+        - name: horizon
+          in: query
+          schema:
+            type: integer
+            default: 24
+            enum: [24, 48, 72]
+      responses:
+        '200':
+          description: Portfolio-level forecast summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PortfolioForecast'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    PlantId:
+      name: plantId
+      in: path
+      required: true
+      description: Unique identifier of the plant
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: boolean
+          example: true
+        message:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [grid_operator, utility_admin, plant_owner, admin]
+
+    PlantInput:
+      type: object
+      required: [name, type, latitude, longitude, capacityMW]
+      properties:
+        name:
+          type: string
+          example: Bhuj Solar Farm 1
+        type:
+          type: string
+          enum: [solar, wind]
+        latitude:
+          type: number
+          format: float
+        longitude:
+          type: number
+          format: float
+        capacityMW:
+          type: number
+          description: Installed capacity in megawatts
+        commissionedDate:
+          type: string
+          format: date
+        solarSpec:
+          type: object
+          properties:
+            panelTiltDeg:
+              type: number
+            panelAzimuthDeg:
+              type: number
+        windSpec:
+          type: object
+          properties:
+            hubHeightM:
+              type: number
+            rotorDiameterM:
+              type: number
+        hasLimitedHistory:
+          type: boolean
+          description: True for newly commissioned plants with little historical data
+
+    Plant:
+      allOf:
+        - $ref: '#/components/schemas/PlantInput'
+        - type: object
+          properties:
+            id:
+              type: string
+            createdAt:
+              type: string
+              format: date-time
+
+    TelemetryPoint:
+      type: object
+      required: [timestamp, generationMW]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        generationMW:
+          type: number
+        sensorStatus:
+          type: string
+          enum: [ok, degraded, offline]
+        outage:
+          type: boolean
+          default: false
+
+    WeatherSnapshot:
+      type: object
+      properties:
+        plantId:
+          type: string
+        source:
+          type: string
+          description: Reconciled from Open-Meteo and NASA POWER
+          example: "open-meteo+nasa-power (reconciled)"
+        hourly:
+          type: array
+          items:
+            type: object
+            properties:
+              time:
+                type: string
+                format: date-time
+              cloudCoverPct:
+                type: number
+              ghiWm2:
+                type: number
+                description: Global horizontal irradiance
+              dniWm2:
+                type: number
+                description: Direct normal irradiance
+              rainProbabilityPct:
+                type: number
+              temperatureC:
+                type: number
+              humidityPct:
+                type: number
+              windSpeedMs:
+                type: number
+              windDirectionDeg:
+                type: number
+              windGustMs:
+                type: number
+              turbulenceIndex:
+                type: number
+
+    ForecastResult:
+      type: object
+      properties:
+        plantId:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        horizonHours:
+          type: integer
+        points:
+          type: array
+          items:
+            type: object
+            properties:
+              time:
+                type: string
+                format: date-time
+              expectedMW:
+                type: number
+              lowerBoundMW:
+                type: number
+              upperBoundMW:
+                type: number
+              confidencePct:
+                type: number
+        riskWindows:
+          type: array
+          items:
+            type: object
+            properties:
+              start:
+                type: string
+                format: date-time
+              end:
+                type: string
+                format: date-time
+              type:
+                type: string
+                enum: [over_generation, under_generation, operational_risk]
+
+    Recommendation:
+      type: object
+      properties:
+        plantId:
+          type: string
+        generatedAt:
+          type: string
+          format: date-time
+        action:
+          type: string
+          enum: [charge_battery, discharge_battery, curtail, export, activate_backup, hold]
+        amountMW:
+          type: number
+        durationHours:
+          type: number
+        reasoning:
+          type: string
+        constraintsConsidered:
+          type: array
+          items:
+            type: string
+            example: ["battery_capacity", "transmission_limit", "cost", "demand_forecast"]
+
+    SimulationRequest:
+      type: object
+      required: [plantId, scenario]
+      properties:
+        plantId:
+          type: string
+        scenario:
+          type: string
+          description: Natural-language or structured what-if scenario
+          example: "What if demand increases 10% and this turbine goes offline for 6 hours?"
+        overrides:
+          type: object
+          properties:
+            demandChangePct:
+              type: number
+            plantOutageHours:
+              type: number
+            weatherOverride:
+              type: object
+
+    SimulationResult:
+      type: object
+      properties:
+        scenario:
+          type: string
+        forecast:
+          $ref: '#/components/schemas/ForecastResult'
+        recommendation:
+          $ref: '#/components/schemas/Recommendation'
+        explanation:
+          type: string
+
+    Alert:
+      type: object
+      properties:
+        id:
+          type: string
+        plantId:
+          type: string
+        severity:
+          type: string
+          enum: [low, medium, high]
+        type:
+          type: string
+          enum: [curtailment_risk, shortfall_risk, storage_limit, sensor_fault, extreme_weather]
+        message:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        acknowledged:
+          type: boolean
+          default: false
+
+    PortfolioForecast:
+      type: object
+      properties:
+        generatedAt:
+          type: string
+          format: date-time
+        horizonHours:
+          type: integer
+        totalExpectedMW:
+          type: array
+          items:
+            type: object
+            properties:
+              time:
+                type: string
+                format: date-time
+              expectedMW:
+                type: number
+              lowerBoundMW:
+                type: number
+              upperBoundMW:
+                type: number
+        plantBreakdown:
+          type: array
+          items:
+            type: object
+            properties:
+              plantId:
+                type: string
+              expectedMW:
+                type: number
