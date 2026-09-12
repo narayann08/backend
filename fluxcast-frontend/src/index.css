@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+@import 'leaflet/dist/leaflet.css';
+
+/*
+ * Design tokens. Tailwind v4 is configured in CSS rather than a JS config file,
+ * so every token below is usable as a utility (e.g. `bg-severity-high`,
+ * `text-status-lower`).
+ */
+@theme {
+  /* Alert severity — plan §1.3 */
+  --color-severity-high: #dc2626;
+  --color-severity-high-soft: #fef2f2;
+  --color-severity-medium: #d97706;
+  --color-severity-medium-soft: #fffbeb;
+  --color-severity-low: #2563eb;
+  --color-severity-low-soft: #eff6ff;
+
+  /* Generation status vs forecast — plan §1.3 */
+  --color-status-lower: #dc2626;
+  --color-status-lower-soft: #fef2f2;
+  --color-status-usual: #059669;
+  --color-status-usual-soft: #ecfdf5;
+  --color-status-higher: #7c3aed;
+  --color-status-higher-soft: #f5f3ff;
+  --color-status-unknown: #64748b;
+  --color-status-unknown-soft: #f8fafc;
+
+  /* Chart series */
+  --color-chart-actual: #0ea5e9;
+  --color-chart-forecast: #8b5cf6;
+  --color-chart-band: #c4b5fd;
+  --color-chart-confidence: #059669;
+
+  /* Product surface */
+  --color-surface: #f8fafc;
+  --color-surface-raised: #ffffff;
+  --color-ink: #0f172a;
+  --color-ink-muted: #64748b;
+  --color-line: #e2e8f0;
+  --color-brand: #0284c7;
+  --color-brand-dark: #075985;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Leaflet paints its own panes; keep it under our overlays and popups. */
+.leaflet-container {
+  background: #dbeafe;
+  font-family: inherit;
+}
+
+/* Our marker is a bare inline SVG — strip Leaflet's divIcon chrome. */
+.fluxcast-marker {
+  background: transparent;
+  border: none;
+}
+
+/*
+ * Leaflet hard-codes tooltip padding, colour and white-space. Reset those so
+ * the React tooltip body can lay itself out, and let it grow past the default
+ * max-width for the multi-line generation summary.
+ */
+.leaflet-tooltip.fluxcast-tooltip {
+  padding: 0.75rem;
+  max-width: none;
+  white-space: normal;
+  border: 1px solid var(--color-line);
+  border-radius: 0.75rem;
+  background: var(--color-surface-raised);
+  color: var(--color-ink);
+  box-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.2);
+}
+
+.leaflet-tooltip.fluxcast-tooltip::before {
+  border-top-color: var(--color-line);
+}
+
+/* Visible focus ring for keyboard users across interactive elements. */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+}
+
+@keyframes fluxcast-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.animate-soft-pulse {
+  animation: fluxcast-pulse 1.8s ease-in-out infinite;
+}
