@@ -1,231 +1,117 @@
 # FluxCast Backend
 
-> **AI-Powered Renewable Generation Forecasting & Autonomous Grid Decision Platform**
+FluxCast is a renewable generation forecasting and grid decision-support backend. It combines weather data, plant telemetry, and a four-stage LLM agent pipeline to produce hourly solar/wind generation forecasts, grid-action recommendations, and plain-language explanations for grid operators.
 
-FluxCast is an enterprise-grade renewable energy forecasting and grid dispatch optimization backend. It synthesises high-resolution numerical weather prediction models (Open-Meteo API) and satellite irradiance observations (NASA POWER API) with plant telemetry to deliver hourly solar/wind generation forecasts, operational risk alerts, and automated grid-balancing recommendations (battery storage dispatch, curtailment, export).
+## Contents
 
----
+- [Architecture](#architecture)
+- [Module Workflow](#module-workflow)
+- [LLM Agent Workflow](#llm-agent-workflow)
+- [API Reference](#api-reference)
+- [Renewable Energy Glossary](#renewable-energy-glossary)
+- [Getting Started](#getting-started)
 
-## ⚡ Key Capabilities
-
-- **Multi-Source Weather Reasoning:** Harmonises numerical forecasts from Open-Meteo (https://api.open-meteo.com/v1/forecast) and NASA POWER satellite observations (https://power.larc.nasa.gov/api/) using physics weighting and LLM reasoning.
-- **4-Agent LangGraph Pipeline:**
-  1. `WeatherReasoningAgent` — reconciles divergent met models into a trusted hourly snapshot.
-  2. `ForecastingAgent` — physics-informed renewable generation projection with uncertainty bounds & risk windows. Supported by MongoDB Atlas Vector Search (RAG) for new plants with limited telemetry.
-  3. `DecisionAgent` — recommends optimal grid actions (`charge_battery`, `discharge_battery`, `curtail`, `export`, `activate_backup`, `hold`) given battery SoC and demand constraints.
-  4. `ExplainabilityAgent` — delivers human-operator reasoning summaries and automatically triggers alerts for risk periods.
-- **X.AI Grok Integration:** Powered by the X.AI Grok API (`https://api.x.ai/v1`, model `grok-beta`) via OpenAI-compatible LangChain client.
-- **Model Context Protocol (MCP) Tools:** Clean modular interface connecting agents to external APIs, telemetry, vector search, and DB writes.
-- **Real-Time Push:** Socket.IO pushes `new_alert` events instantly to operator consoles.
-- **Automated Operations:** Hourly forecast generation (`5 * * * *`) and 3-hourly weather pre-fetching (`0 */3 * * *`) via `node-cron`.
-- **OpenAPI 3.0 Contract Validation:** Strict request validation against [`openapi.yaml`](./openapi.yaml) via `express-openapi-validator`.
-
----
-
-## 🏗️ Architecture
+## Architecture
 
 ```
-                                  ┌─────────────────────────────┐
-                                  │   Grid Operator Dashboard   │
-                                  └──────────────┬──────────────┘
-                                                 │ HTTP / WebSocket
-                                                 ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│ Express.js API Layer (/v1)                                                                  │
-│  ├── /auth/login         ├── /plants/:id/forecast     ├── /simulate                         │
-│  ├── /plants (+ SCADA)   ├── /plants/:id/recommend    ├── /alerts                           │
-│  ├── /plants/:id/weather ├── /plants/:id/explain      ├── /portfolio/forecast               │
-└────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                         │
-                                         ▼
-┌─────────────────────────────────────────────────────────────────────────────────────────────┐
-│ LangGraph Workflow Chain (X.AI Grok-Powered)                                               │
-│                                                                                             │
-│  [Weather-Reasoning Agent] ──▶ [Forecasting Agent] ──▶ [Decision Agent] ──▶ [Explain Agent] │
-│            │                          │                      │                      │       │
-│            ▼                          ▼                      ▼                      ▼       │
-│     ┌─────────────┐            ┌─────────────┐        ┌─────────────┐        ┌────────────┐ │
-│     │ openMeteo   │            │ telemetry   │        │ battery     │        │ notify     │ │
-│     │ mosdac      │            │ ragRetrieve │        │ demand      │        │ (Alert &   │ │
-│     │ nasaGis     │            │ dbReadWrite │        │ dbReadWrite │        │  Socket.IO)│ │
-│     └─────────────┘            └─────────────┘        └─────────────┘        └────────────┘ │
-│                                MCP Tool Layer                                               │
-└────────────────────────────────────────┬────────────────────────────────────────────────────┘
-                                         │
-                        ┌────────────────┴────────────────┐
-                        ▼                                 ▼
-         ┌─────────────────────────────┐   ┌─────────────────────────────┐
-         │     MongoDB Atlas Cluster   │   │       External APIs         │
-         │  • Users      • Plants      │   │  • X.AI Grok                │
-         │  • Telemetry  • Forecasts   │   │  • Open-Meteo API (NWP)     │
-         │  • Recs       • Alerts      │   │  • NASA POWER API (Met/Sol) │
-         │  • Vector Index (RAG)       │   │                             │
-         └─────────────────────────────┘   └─────────────────────────────┘
+Client (dashboard / Postman)
+        |
+        v
+Express API (/v1) --- OpenAPI request validation --- JWT auth middleware
+        |
+        v
+LangGraph-style workflow (services/graph/forecastWorkflow.js)
+  WeatherReasoningAgent -> ForecastingAgent -> DecisionAgent -> ExplainabilityAgent
+        |
+        v
+MCP tools (weather fetch, telemetry read, RAG search, battery/demand stubs, alerts)
+        |
+        v
+MongoDB (Users, Plants, Telemetry, WeatherSnapshots, Forecasts, Recommendations, Alerts)
 ```
 
----
+Requests are validated against `openapi.yaml` before reaching any route handler. Every protected route requires a `Bearer` JWT issued by `/v1/auth/login`.
 
-## 🛠️ Tech Stack
+## Module Workflow
 
-- **Runtime:** Node.js 18+ (CommonJS)
-- **Framework:** Express.js 4.19
-- **Database:** MongoDB Atlas + Mongoose 8.4
-- **AI / LLM Orchestration:** LangChain.js, LangGraph.js, `@langchain/openai`
-- **Model Provider:** X.AI Grok (`grok-beta`)
-- **Real-Time Communication:** Socket.IO 4.7
-- **Job Scheduling:** `node-cron`
-- **Specification & Validation:** OpenAPI 3.0.3, `express-openapi-validator`
-- **Security:** Helmet, CORS, bcrypt, JWT, `express-rate-limit`
-- **Logging:** Winston + Morgan
-- **Testing:** Jest + Supertest (11 test suites, 40 unit/integration tests)
+- `src/config` - `env.js` loads and validates required environment variables at startup; `db.js` connects to the configured MongoDB URI and automatically falls back to a local MongoDB instance if that connection fails.
+- `src/models` - Mongoose schemas: `User`, `Plant`, `Telemetry`, `WeatherSnapshot`, `ForecastResult`, `Recommendation`, `Alert`. These define the exact shape of every persisted document.
+- `src/middleware` - `authMiddleware` verifies the JWT and attaches `req.user`; `openApiValidatorSetup` rejects any request that does not match `openapi.yaml`; `errorHandler` turns thrown errors into a consistent `{ error, message }` JSON response.
+- `src/routes` - one Express router per resource (auth, plants, weather, forecast, recommendation/explain, simulate, alerts, portfolio). Routers are mounted under `/v1` in `app.js`.
+- `src/services/auth` - `authService.js` handles login, registration, password hashing/verification, and password reset token issuance.
+- `src/services/agents` - the four LLM-driven agents that make up the forecasting pipeline (see next section).
+- `src/services/graph/forecastWorkflow.js` - runs the four agents in sequence, passing a single shared state object between them and logging each step for auditability.
+- `src/services/mcp-tools` - single-purpose tool functions the agents call: fetching weather (`openMeteoTool`, `nasaGisTool`/`nasaPowerTool`, `mosdacTool` - now an Open-Meteo alias), reading telemetry (`telemetryTool`), similarity search for new plants (`ragRetrieverTool`), battery/demand stubs (`batteryStatusTool`, `demandDataTool`), generic persistence (`dbReadWriteTool`), and alerting (`notificationTool`).
+- `src/services/connectors` - the raw HTTP/DB clients underneath the tools: `openMeteoConnector`, `nasaConnector`, `telemetryConnector`. `mosdacConnector` is a legacy name kept for compatibility and now simply calls the Open-Meteo connector.
+- `src/jobs` - `node-cron` schedules: an hourly job that runs the full forecast workflow for every plant, and a 3-hourly job that pre-fetches and caches a weather snapshot.
+- `src/sockets/alertSocket.js` - initializes Socket.IO and emits a `new_alert` event to connected dashboards whenever a risk window triggers a notification.
+- `src/scripts` - `seed.js` populates sample users, plants, and telemetry; `generateMockTelemetryCsv.js` and `importTelemetryCsv.js` create and load a reproducible CSV telemetry fixture for testing.
+- `src/utils/logger.js` - shared Winston logger used across the codebase.
+- `src/app.js` builds the Express app (middleware, routes, error handler); `src/server.js` is the process entry point - it connects to the database, starts the HTTP server and Socket.IO, and starts the cron jobs.
 
----
+## LLM Agent Workflow
 
-## 🚀 Getting Started
+Every forecast run (scheduled, manually triggered, or simulated) executes the same four-node chain, defined in `services/graph/forecastWorkflow.js`. Each agent calls an LLM (X.AI Grok, via the OpenAI-compatible `ChatOpenAI` client) with a strict system prompt and expects a JSON-only response; if the LLM call fails or returns invalid JSON, each agent falls back to a deterministic default so the pipeline never hard-fails.
 
-### 1. Prerequisites
+1. **WeatherReasoningAgent** (`weatherReasoningAgent.js`) - fetches numerical forecast data from Open-Meteo and satellite-derived data from NASA POWER in parallel, then asks the LLM to reconcile the two sources into one trusted hourly weather snapshot. Falls back to raw Open-Meteo data if reconciliation fails. Result is persisted as a `WeatherSnapshot`.
+2. **ForecastingAgent** (`forecastingAgent.js`) - reads the plant's recent telemetry (and, for plants with `hasLimitedHistory: true`, runs a vector similarity search over historical patterns via `ragRetrieverTool`). Combines this with the weather snapshot and asks the LLM to produce an hourly generation forecast with uncertainty bounds and any risk windows (over-generation, under-generation, operational risk). Falls back to a flat 50%-of-capacity curve on failure. Result is persisted as a `ForecastResult`.
+3. **DecisionAgent** (`decisionAgent.js`) - reads current battery state of charge and grid demand, then asks the LLM to pick one grid action (`charge_battery`, `discharge_battery`, `curtail`, `export`, `activate_backup`, `hold`) that respects those constraints. Falls back to `hold` on failure. Persisted as a `Recommendation`, unless the run is a simulation.
+4. **ExplainabilityAgent** (`explainabilityAgent.js`) - turns the forecast and recommendation into a short, operator-facing explanation, and raises an `Alert` (persisted + pushed via Socket.IO) for any risk window found in the forecast. Skipped for simulations, which never persist or alert.
 
-- [Node.js](https://nodejs.org/) v18 or later
-- MongoDB Atlas cluster connection URI (or local MongoDB 6+)
-- X.AI Grok API key (get one from [console.x.ai](https://console.x.ai))
+`simulationMode: true` (used by `POST /v1/simulate`) runs the identical chain with optional overrides, but skips all persistence and alerting so what-if scenarios never affect real stored data.
 
-### 2. Installation
+## API Reference
 
-```bash
-cd fluxcast-backend
-npm install
-```
+All endpoints are prefixed with `/v1` and validated against `openapi.yaml`. Endpoints marked "Yes" require an `Authorization: Bearer <token>` header.
 
-### 3. Environment Configuration
-
-Copy `.env.example` to `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Configure your variables:
-
-```ini
-# MongoDB Atlas
-MONGODB_URI=mongodb+srv://<username>:<password>@cluster.mongodb.net/fluxcast?retryWrites=true&w=majority
-
-# JWT Authentication
-JWT_SECRET=your_super_secret_key_here
-JWT_EXPIRES_IN=24h
-
-# Server
-PORT=5000
-NODE_ENV=development
-
-# X.AI Grok API
-XAI_API_KEY=your_xai_api_key_here
-XAI_BASE_URL=https://api.x.ai/v1
-XAI_MODEL=grok-beta
-
-# Weather Services
-OPEN_METEO_BASE_URL=https://api.open-meteo.com/v1/forecast
-# NASA POWER Proxy Server (Local FastAPI service in ../nasa-power-api-main)
-NASA_POWER_BASE_URL=http://localhost:8000
-# NASA_API_KEY is not required when using the local proxy
-```
-
-### 4. Seed Sample Data
-
-Run the database seed script to insert test users, sample solar/wind plants, and 96 hours of hourly SCADA telemetry:
-
-```bash
-npm run seed
-```
-
-Default credentials created:
-- **Admin:** `admin@fluxcast.io` / `Password123!`
-- **Operator:** `operator@fluxcast.io` / `Password123!`
-- **Utility:** `utility@fluxcast.io` / `Password123!`
-
-### 5. Running the Application
-
-**Development (with live-reload):**
-```bash
-npm run dev
-```
-
-**Production:**
-```bash
-npm start
-```
-
----
-
-## 🧪 Testing
-
-Run the automated test suite with Jest:
-
-```bash
-npm test
-```
-
-Generate test coverage report:
-```bash
-npm run test:coverage
-```
-
-All 11 test suites mock external network calls and MongoDB connections, ensuring fast, deterministic contract tests:
-- `tests/routes/auth.test.js`
-- `tests/routes/plants.test.js`
-- `tests/routes/alerts.test.js`
-- `tests/routes/forecast.test.js`
-- `tests/routes/recommendation.test.js`
-- `tests/routes/simulate.test.js`
-- `tests/routes/portfolio.test.js`
-- `tests/routes/weather.test.js`
-- `tests/services/openMeteoConnector.test.js`
-- `tests/services/telemetryConnector.test.js`
-- `tests/services/notificationTool.test.js`
-
----
-
-## 📡 API Reference
-
-All endpoints are prefixed with `/v1`:
-
-| Method | Endpoint | Description | Auth Required |
+| Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| `POST` | `/v1/auth/login` | Authenticate and obtain JWT token | No |
-| `GET` | `/v1/plants` | List all registered solar and wind plants | Yes |
-| `POST` | `/v1/plants` | Register a new generation plant | Yes |
-| `GET` | `/v1/plants/:id` | Get plant metadata & capacity specifications | Yes |
-| `PATCH` | `/v1/plants/:id` | Update plant specifications | Yes |
-| `DELETE` | `/v1/plants/:id` | Remove a plant (Admin / Utility Admin only) | Yes (`admin`) |
-| `GET` | `/v1/plants/:id/telemetry` | Retrieve last N days of actual generation | Yes |
-| `POST` | `/v1/plants/:id/telemetry` | Ingest SCADA / inverter telemetry point | Yes |
-| `GET` | `/v1/plants/:id/weather` | Fetch reconciled weather forecast snapshot | Yes |
-| `GET` | `/v1/plants/:id/forecast` | Retrieve latest generation forecast (24/48/72h) | Yes |
-| `POST` | `/v1/plants/:id/forecast` | Trigger fresh agent workflow (queued background job) | Yes |
-| `GET` | `/v1/plants/:id/recommendation` | Get Decision Agent's recommended grid action | Yes |
-| `GET` | `/v1/plants/:id/explain` | Get plain-language rationale & constraint factors | Yes |
-| `POST` | `/v1/simulate` | Run what-if scenario with temporary overrides | Yes |
-| `GET` | `/v1/alerts` | List active alerts filterable by severity/plant | Yes |
-| `POST` | `/v1/alerts/:id/acknowledge` | Acknowledge/clear an alert | Yes |
-| `GET` | `/v1/portfolio/forecast` | Aggregated generation time-series across plants | Yes |
-| `GET` | `/health` | Server & DB connection health check | No |
+| POST | `/auth/login` | No | Authenticate with email/password and receive a JWT. |
+| GET | `/plants` | Yes | List registered plants, filterable by type, paginated. |
+| POST | `/plants` | Yes | Register a new solar or wind plant. |
+| GET | `/plants/:plantId` | Yes | Get a single plant's metadata and capacity specs. |
+| PATCH | `/plants/:plantId` | Yes | Update a plant's metadata. |
+| DELETE | `/plants/:plantId` | Yes (admin/utility_admin) | Remove a plant. |
+| GET | `/plants/:plantId/telemetry` | Yes | Retrieve recent (default 4 days) actual generation and sensor history. |
+| POST | `/plants/:plantId/telemetry` | Yes | Ingest a new SCADA/inverter telemetry reading. |
+| GET | `/plants/:plantId/weather` | Yes | Get the reconciled weather snapshot for a plant's location, produced by the WeatherReasoningAgent. |
+| GET | `/plants/:plantId/forecast` | Yes | Get the most recently generated forecast for a given horizon (24/48/72h). |
+| POST | `/plants/:plantId/forecast` | Yes | Trigger a fresh run of the full agent workflow in the background; returns a `jobId` immediately. |
+| GET | `/plants/:plantId/recommendation` | Yes | Get the DecisionAgent's latest recommended grid action. |
+| GET | `/plants/:plantId/explain` | Yes | Get the ExplainabilityAgent's plain-language rationale for the current forecast/recommendation. |
+| POST | `/simulate` | Yes | Re-run the workflow with temporary overrides (demand spike, outage, etc.) without touching stored data. |
+| GET | `/alerts` | Yes | List alerts, filterable by severity and plant. |
+| POST | `/alerts/:alertId/acknowledge` | Yes | Mark an alert as acknowledged. |
+| GET | `/portfolio/forecast` | Yes | Aggregated generation forecast summed across multiple (or all) plants. |
+| GET | `/health` | No | Server and database connection status. Not part of the OpenAPI contract. |
 
----
+## Renewable Energy Glossary
 
-## 🔌 Socket.IO Real-Time Events
+Terms used throughout the API responses and agent logic:
 
-Connect to Socket.IO server on port `5000`:
+- **GHI (Global Horizontal Irradiance)** - total solar radiation received per unit area on a horizontal surface; the primary driver of solar generation.
+- **DNI (Direct Normal Irradiance)** - solar radiation received per unit area by a surface held perpendicular to the sun's rays; relevant for tracking solar systems.
+- **Cloud cover percentage** - fraction of sky covered by cloud, used to discount expected irradiance.
+- **Turbulence index** - a measure of short-term wind variability at a site; higher values indicate less predictable wind generation.
+- **Capacity (capacityMW)** - the maximum power output a plant can produce, in megawatts.
+- **Panel tilt / azimuth** - the angle a solar panel is mounted at, and the compass direction it faces; both affect how much irradiance a panel actually captures.
+- **Hub height / rotor diameter** - for wind turbines, the height of the nacelle above ground and the diameter swept by the blades; both affect how much wind energy a turbine can capture.
+- **Cut-in, rated, and cut-out speed** - wind turbine thresholds: below cut-in (3 m/s in this system) the turbine produces nothing; between cut-in and rated speed (12 m/s) output rises roughly with the cube of wind speed; between rated and cut-out speed (25 m/s) the turbine produces at full capacity; above cut-out it shuts down to avoid damage.
+- **State of charge (SoC) / battery charge percent** - how full a battery storage system is, expressed as a percentage of its maximum capacity; used to decide whether the grid can absorb more generation or needs to draw on storage.
+- **Curtailment** - deliberately reducing generation output (e.g. by throttling panels or turbines) because the grid cannot use or store the available power.
+- **Grid actions** - the recommendation set: `charge_battery` (store surplus), `discharge_battery` (draw from storage to cover a shortfall), `curtail` (reduce output), `export` (send surplus to the wider grid), `activate_backup` (bring backup generation online during a shortfall), `hold` (no action needed).
+- **Risk windows** - time ranges flagged in a forecast: `over_generation` (sustained output near or above capacity, risking curtailment), `under_generation` (output well below capacity during hours when it is expected, risking a supply shortfall), `operational_risk` (a degraded sensor or outage detected in recent telemetry).
+- **Uncertainty bounds (lowerBoundMW / upperBoundMW) and confidence percentage** - the forecast is a range, not a single number; confidence percentage reflects how reliable that range is judged to be, and drops when recent telemetry shows sensor problems.
+- **Demand forecast** - projected grid electricity demand used to compare against expected generation before recommending an action.
+- **Transmission limit / ramp rate** - grid-side constraints considered by the DecisionAgent: the maximum power a line can carry, and the maximum rate at which output can be safely increased or decreased.
+- **RAG (retrieval-augmented generation) / vector search** - for newly commissioned plants with little history (`hasLimitedHistory: true`), the ForecastingAgent retrieves similar historical weather/generation patterns from other plants to inform its forecast, instead of relying solely on that plant's own limited telemetry.
 
-```javascript
-const socket = io('http://localhost:5000');
+## Getting Started
 
-socket.on('new_alert', (alert) => {
-  console.log(`[ALERT] [${alert.severity.toUpperCase()}] ${alert.type}: ${alert.message}`);
-});
-```
+1. `npm install`
+2. `cp .env.example .env` and fill in `MONGODB_URI` and `JWT_SECRET` (an `XAI_API_KEY` is optional - every agent falls back gracefully without one).
+3. `npm run seed` to create sample users, plants, and telemetry (or `npm run mock:csv:import` to load the CSV test fixture instead).
+4. `npm run dev` to start the server on `PORT` (default 5000).
+5. `npm test` to run the Jest test suite (route contract tests, agent unit tests, and a CSV-driven end-to-end pipeline test).
 
----
-
-## 📜 License
-
-ISC License.
+Default seeded login: `admin@fluxcast.io` / `Password123!` (also `operator@fluxcast.io`, `utility@fluxcast.io`).
