@@ -5,6 +5,7 @@ const { connectDB } = require('../config/db');
 const logger = require('../utils/logger');
 const Plant = require('../models/Plant');
 const Telemetry = require('../models/Telemetry');
+const { istHourOfDay } = require('../utils/istTime');
 
 /**
  * Extend the mock SCADA telemetry feed from each plant's last stored reading
@@ -20,10 +21,10 @@ const Telemetry = require('../models/Telemetry');
 
 /** Hourly generation for a plant, mirroring the curves used by seed.js. */
 function mockGenerationMW(plant, timestamp) {
-  const hourOfDay = timestamp.getUTCHours();
+  const hourOfDay = istHourOfDay(timestamp); // every plant is in India — IST, not UTC
 
   if (plant.type === 'solar') {
-    // Daylight curve between 06:00 and 18:00 UTC, zero overnight.
+    // Daylight curve between 06:00 and 18:00 IST, zero overnight.
     if (hourOfDay < 6 || hourOfDay > 18) return 0;
     const peakFactor = Math.sin(((hourOfDay - 6) / 12) * Math.PI);
     return Math.max(0, plant.capacityMW * 0.85 * peakFactor + (Math.random() * 10 - 5));
