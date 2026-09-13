@@ -95,7 +95,7 @@ export default function NoticeBoard({ plantId, className = '' }) {
         <EmptyState
           icon={Lightbulb}
           title="No recommendations yet"
-          description="The Decision Agent produces a recommended grid action with every hourly forecast run."
+          description="The Decision Agent produces a recommended grid action with every forecast run."
         />
       )}
 

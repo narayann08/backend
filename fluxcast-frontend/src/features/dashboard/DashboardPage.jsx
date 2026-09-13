@@ -101,91 +101,81 @@ export default function DashboardPage() {
         isLoading={isLoadingHeadline}
       />
 
-      <div className="grid min-h-0 gap-4 lg:grid-cols-3">
-        {/* Map column */}
-        <div className="flex min-h-0 flex-col gap-3 lg:col-span-2">
-          <Card
-            title="Site map"
-            subtitle={
-              weatherQuery.data
-                ? `Overlay shows current conditions · ${weatherQuery.data.conditionLabel}`
-                : 'Loading conditions…'
-            }
-            icon={MapIcon}
-            bodyClassName="p-0"
-            className="min-h-[24rem] flex-1 overflow-hidden"
-          >
-            <ErrorBoundary title="The map failed to render">
-              <div className="h-full min-h-[24rem] w-full">
-                {plant ? (
-                  <PlantMap
-                    plant={plant}
-                    live={live}
-                    performance={performance}
-                    forecast={forecastQuery.data}
-                    weather={weatherQuery.data}
-                  />
-                ) : (
-                  <Skeleton className="h-full min-h-[24rem] w-full rounded-none" />
-                )}
-              </div>
-            </ErrorBoundary>
-          </Card>
+      {/* The map runs the full width — the site is the subject of this screen. */}
+      <Card
+        title="Site map"
+        subtitle={
+          weatherQuery.data
+            ? `Overlay shows current conditions · ${weatherQuery.data.conditionLabel}`
+            : 'Loading conditions…'
+        }
+        icon={MapIcon}
+        bodyClassName="p-0"
+        className="h-[26rem] overflow-hidden"
+      >
+        <ErrorBoundary title="The map failed to render">
+          <div className="h-full w-full">
+            {plant ? (
+              <PlantMap
+                plant={plant}
+                live={live}
+                performance={performance}
+                forecast={forecastQuery.data}
+                weather={weatherQuery.data}
+              />
+            ) : (
+              <Skeleton className="h-full w-full rounded-none" />
+            )}
+          </div>
+        </ErrorBoundary>
+      </Card>
 
-          {/*
-            Text equivalent of the map tooltip. The map is aria-hidden, so this
-            is how the same information reaches screen readers — and it stays
-            useful on touch devices, where there is no hover.
-          */}
-          {performance && (
-            <div className="fc-ticks relative rounded-[3px] border border-line bg-surface-raised p-4 text-sm">
-              <h2 className="fc-label mb-2 text-ink-muted">Site summary</h2>
-              <p className="text-ink">
-                {plant?.name} is generating{' '}
-                <strong className="font-mono font-normal">{formatMW(performance.actualMW)}</strong>{' '}
-                against a forecast of{' '}
-                <strong className="font-mono font-normal">
-                  {formatMW(performance.expectedMW)}
-                </strong>{' '}
-                —{' '}
-                <span className={style.text}>
-                  {style.label.toLowerCase()}
-                  {performance.deltaPct !== null && performance.deltaPct !== undefined
-                    ? ` (${formatSignedPct(performance.deltaPct)})`
-                    : ''}
-                </span>
-                {performance.measuredAt
-                  ? `, measured ${formatRelative(performance.measuredAt)}`
-                  : ''}
-                .
-              </p>
-              {topReasons.length > 0 && (
-                <ul className="mt-2 space-y-1 text-ink-muted">
-                  {topReasons.map((reason) => (
-                    <li key={reason.code}>• {reason.detail}</li>
-                  ))}
-                </ul>
-              )}
-            </div>
+      {/* Both panels cap at the same height, so the row reads as one band. */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <ErrorBoundary title="The AI decision card failed">
+          <AiDecisionCard
+            plantId={plantId}
+            performance={performance}
+            performanceQuery={performanceQuery}
+            className="max-h-[30rem]"
+          />
+        </ErrorBoundary>
+
+        <ErrorBoundary title="The alerts panel failed">
+          <AlertsPanel plantId={plantId} className="max-h-[30rem] min-h-[18rem]" />
+        </ErrorBoundary>
+      </div>
+
+      {/*
+        Text equivalent of the map tooltip. The map is aria-hidden, so this is
+        how the same information reaches screen readers — and it stays useful
+        on touch devices, where there is no hover.
+      */}
+      {performance && (
+        <div className="fc-ticks relative rounded-[3px] border border-line bg-surface-raised p-4 text-sm">
+          <h2 className="fc-label mb-2 text-ink-muted">Site summary</h2>
+          <p className="text-ink">
+            {plant?.name} is generating{' '}
+            <strong className="font-mono font-normal">{formatMW(performance.actualMW)}</strong>{' '}
+            against a forecast of{' '}
+            <strong className="font-mono font-normal">{formatMW(performance.expectedMW)}</strong> —{' '}
+            <span className={style.text}>
+              {style.label.toLowerCase()}
+              {performance.deltaPct !== null && performance.deltaPct !== undefined
+                ? ` (${formatSignedPct(performance.deltaPct)})`
+                : ''}
+            </span>
+            {performance.measuredAt ? `, measured ${formatRelative(performance.measuredAt)}` : ''}.
+          </p>
+          {topReasons.length > 0 && (
+            <ul className="mt-2 space-y-1 text-ink-muted">
+              {topReasons.map((reason) => (
+                <li key={reason.code}>• {reason.detail}</li>
+              ))}
+            </ul>
           )}
         </div>
-
-        {/* Right rail */}
-        <div className="flex min-h-0 flex-col gap-4">
-          <ErrorBoundary title="The alerts panel failed">
-            <AlertsPanel plantId={plantId} className="max-h-[28rem] min-h-[18rem]" />
-          </ErrorBoundary>
-
-          <ErrorBoundary title="The AI decision card failed">
-            <AiDecisionCard
-              plantId={plantId}
-              performance={performance}
-              performanceQuery={performanceQuery}
-              className="max-h-[36rem]"
-            />
-          </ErrorBoundary>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

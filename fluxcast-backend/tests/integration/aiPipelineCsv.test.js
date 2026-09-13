@@ -61,23 +61,10 @@ function windWeatherHour(i) {
   return { hourOfDay, windSpeedMs };
 }
 
-function solarExpectedMW(capacityMW, w) {
-  if (w.ghiWm2 <= 0) return 0;
-  const tempFactor = 1 - Math.max(0, w.temperatureC - 25) * 0.004;
-  return capacityMW * (w.ghiWm2 / 1000) * (1 - (w.cloudCoverPct / 100) * 0.7) * tempFactor;
-}
-
-function windExpectedMW(capacityMW, w) {
-  const { windSpeedMs: v } = w;
-  if (v < 3 || v > 25) return 0;
-  if (v <= 12) return capacityMW * Math.pow((v - 3) / 9, 3);
-  return capacityMW;
-}
 
 function buildScenario(plant, telemetry) {
   const isSolar = plant.type === 'solar';
   const weatherFn = isSolar ? solarWeatherHour : windWeatherHour;
-  const genFn = isSolar ? solarExpectedMW : windExpectedMW;
 
   const weatherHourly = Array.from({ length: HORIZON }, (_, i) => {
     const w = weatherFn(i);
@@ -87,31 +74,16 @@ function buildScenario(plant, telemetry) {
       : { time, cloudCoverPct: 30, ghiWm2: 0, dniWm2: 0, rainProbabilityPct: 5, temperatureC: 22, humidityPct: 60, windSpeedMs: w.windSpeedMs, windDirectionDeg: 200, windGustMs: w.windSpeedMs + 2, turbulenceIndex: 0.2 };
   });
 
-  const points = weatherHourly.map((wh, i) => {
-    const w = weatherFn(i);
-    const expectedMW = Math.max(0, genFn(plant.capacityMW, w));
-    return {
-      time: wh.time,
-      expectedMW: Math.round(expectedMW * 100) / 100,
-      lowerBoundMW: Math.round(expectedMW * 0.85 * 100) / 100,
-      upperBoundMW: Math.round(expectedMW * 1.15 * 100) / 100,
-      confidencePct: 75,
-    };
-  });
+  const hasOperationalRisk = telemetry.some(t => t.sensorStatus !== 'ok' || t.outage === true);
 
-  const recentTelemetry = telemetry.slice(-10);
-  const hasOperationalRisk = recentTelemetry.some(t => t.sensorStatus === 'degraded' || t.outage === true);
-  const riskWindows = [];
-  if (hasOperationalRisk) {
-    riskWindows.push({
-      start: recentTelemetry[0].timestamp.toISOString(),
-      end: recentTelemetry[recentTelemetry.length - 1].timestamp.toISOString(),
-      type: 'operational_risk',
-    });
-  }
-
-  // Decision rules (src/services/agents/decisionAgent.js system prompt), evaluated at hour 0.
-  const firstPointMW = points[0].expectedMW;
+  /*
+   * The forecaster is arithmetic now, so the expected curve is not something
+   * this fixture supplies — it is what the workflow must derive from the
+   * weather above. Only the hour-zero figure is needed here, to predict which
+   * branch the (still LLM-driven) decision agent should take.
+   */
+  const { impliedMW } = require('../../src/services/forecast/generationModel');
+  const firstPointMW = Number((impliedMW(plant, weatherHourly[0]) || 0).toFixed(2));
   const demandMW0 = 150; // demandDataTool stub: base 150 + sin(0) * 30 = 150 at i=0
   const batteryChargePercent = 65; // batteryStatusTool mock is a fixed constant
   let action = 'hold';
@@ -123,7 +95,6 @@ function buildScenario(plant, telemetry) {
 
   return {
     weatherHourly,
-    forecastData: { points, riskWindows },
     decisionData: {
       action,
       amountMW: Math.abs(demandMW0 - firstPointMW),
@@ -142,8 +113,6 @@ function buildScenario(plant, telemetry) {
 
 function installFakeLlm(scenario) {
   completeJson.mockImplementation(async ({ system }) => {
-    if (system.includes('Weather-Reasoning Agent')) return scenario.weatherHourly;
-    if (system.includes('Forecasting Agent')) return scenario.forecastData;
     if (system.includes('Decision Agent')) return scenario.decisionData;
     if (system.includes('Explainability Agent')) return scenario.explanationData;
     throw new Error('Fake LLM received an unrecognised system prompt');
@@ -155,7 +124,6 @@ function mockPersistence() {
   ForecastResult.create.mockImplementation(async (doc) => ({ ...doc, _id: 'fr-1', toObject: () => ({ ...doc, _id: 'fr-1' }) }));
   Recommendation.create.mockImplementation(async (doc) => ({ ...doc, _id: 'rec-1', toObject: () => ({ ...doc, _id: 'rec-1' }) }));
   notificationTool.handler.mockResolvedValue({ success: true, alertId: 'alert-1' });
-  openMeteoTool.handler.mockResolvedValue({ hourly: [] }); // unused: weather agent's LLM output is faked directly
   nasaPowerTool.handler.mockResolvedValue({ available: false });
   ragRetrieverTool.handler.mockResolvedValue({ results: [] });
 }
@@ -184,7 +152,9 @@ describe('AI pipeline — CSV-driven mock telemetry (tests/fixtures/mock_telemet
   it.each(plantEntries)('runs the full 4-agent workflow for $plant.name ($plant.type)', async ({ plant, telemetry }) => {
     const scenario = buildScenario(plant, telemetry);
     installFakeLlm(scenario);
+    openMeteoTool.handler.mockResolvedValue({ hourly: scenario.weatherHourly });
     telemetryTool.handler.mockResolvedValue(telemetry);
+    WeatherSnapshot.find.mockReturnValue({ sort: () => ({ lean: async () => [] }) });
 
     const result = await runForecastWorkflow({
       plant,
@@ -194,7 +164,7 @@ describe('AI pipeline — CSV-driven mock telemetry (tests/fixtures/mock_telemet
     });
 
     // Forecasting agent: full horizon, non-negative generation, correct day/night physics
-    expect(telemetryTool.handler).toHaveBeenCalledWith({ plantId: plant._id.toString(), days: 4 });
+    expect(telemetryTool.handler).toHaveBeenCalledWith({ plantId: plant._id.toString(), days: 14 });
     expect(result.forecast.points.length).toBe(HORIZON);
     for (const p of result.forecast.points) {
       expect(p.expectedMW).toBeGreaterThanOrEqual(0);
@@ -221,6 +191,7 @@ describe('AI pipeline — CSV-driven mock telemetry (tests/fixtures/mock_telemet
     expect(typeof result.explanation).toBe('string');
     expect(result.explanation.length).toBeGreaterThan(0);
     expect(Array.isArray(result.explanationFactors)).toBe(true);
+    // An outage in the fixture grades high; the type names the condition.
     expect(notificationTool.handler).toHaveBeenCalledWith(
       expect.objectContaining({ plantId: plant._id.toString(), type: 'sensor_fault', severity: 'high' })
     );
@@ -230,7 +201,9 @@ describe('AI pipeline — CSV-driven mock telemetry (tests/fixtures/mock_telemet
     const { plant, telemetry } = plantEntries[0];
     const scenario = buildScenario(plant, telemetry);
     installFakeLlm(scenario);
+    openMeteoTool.handler.mockResolvedValue({ hourly: scenario.weatherHourly });
     telemetryTool.handler.mockResolvedValue(telemetry);
+    WeatherSnapshot.find.mockReturnValue({ sort: () => ({ lean: async () => [] }) });
 
     const result = await runForecastWorkflow({
       plant,

@@ -77,11 +77,22 @@ describe('performanceService', () => {
       expect(weatherImpliedMW(solarPlant, { ghiWm2: 0, cloudCoverPct: 0 })).toBe(0);
     });
 
-    it('derates solar output for cloud cover and heat', () => {
+    it('scales solar output with irradiance and derates for heat', () => {
       const clear = weatherImpliedMW(solarPlant, { ghiWm2: 800, cloudCoverPct: 0, temperatureC: 25 });
-      const cloudy = weatherImpliedMW(solarPlant, { ghiWm2: 800, cloudCoverPct: 80, temperatureC: 25 });
+      const overcast = weatherImpliedMW(solarPlant, { ghiWm2: 240, cloudCoverPct: 80, temperatureC: 25 });
+      const hot = weatherImpliedMW(solarPlant, { ghiWm2: 800, cloudCoverPct: 0, temperatureC: 45 });
+
       expect(clear).toBeCloseTo(400, 0);
-      expect(cloudy).toBeLessThan(clear);
+      expect(overcast).toBeLessThan(clear);
+      expect(hot).toBeLessThan(clear);
+    });
+
+    it('does not charge the same cloud twice', () => {
+      // Open-Meteo's shortwave_radiation is an all-sky figure: cloud is already
+      // priced into GHI, so the reported cloud percentage must not derate again.
+      const withCloudField = weatherImpliedMW(solarPlant, { ghiWm2: 500, cloudCoverPct: 85, temperatureC: 25 });
+      const withoutCloudField = weatherImpliedMW(solarPlant, { ghiWm2: 500, temperatureC: 25 });
+      expect(withCloudField).toBe(withoutCloudField);
     });
 
     it('applies the turbine curve for wind', () => {
@@ -89,6 +100,13 @@ describe('performanceService', () => {
       expect(weatherImpliedMW(windPlant, { windSpeedMs: 30 })).toBe(0);  // above cut-out
       expect(weatherImpliedMW(windPlant, { windSpeedMs: 15 })).toBe(200); // rated output
       expect(weatherImpliedMW(windPlant, { windSpeedMs: 12 })).toBeCloseTo(200, 0);
+    });
+
+    it('uses the cubic power curve between cut-in and rated', () => {
+      // (v³ - 3³) / (12³ - 3³) at 7.5 m/s = 0.232 — the old ((v-3)/9)³ form
+      // returned 0.125, understating a mid-range wind by nearly half.
+      const midRange = weatherImpliedMW(windPlant, { windSpeedMs: 7.5 });
+      expect(midRange / windPlant.capacityMW).toBeCloseTo(0.232, 2);
     });
   });
 

@@ -30,7 +30,8 @@ router.get('/', async (req, res, next) => {
     const hours = Math.min(parseInt(req.query.hours, 10) || 72, 72);
     const forceRefresh = req.query.refresh === 'true';
 
-    let snapshot = await WeatherSnapshot.findOne({ plantId: plant._id })
+    // Observed history is for calibration, never for "current conditions".
+    let snapshot = await WeatherSnapshot.findOne({ plantId: plant._id, observed: { $ne: true } })
       .sort({ generatedAt: -1 })
       .lean();
 

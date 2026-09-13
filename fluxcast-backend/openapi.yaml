@@ -865,6 +865,29 @@ components:
               type:
                 type: string
                 enum: [over_generation, under_generation, operational_risk]
+              severity:
+                type: string
+                enum: [low, medium, high]
+                description: Graded from how far the window goes past its threshold.
+              magnitudePct:
+                type: number
+                description: >-
+                  Peak output as a percentage of nameplate for over_generation,
+                  mean output for under_generation, and the share of faulty
+                  readings for operational_risk.
+              hasOutage:
+                type: boolean
+              detail:
+                type: string
+        calibrationFactor:
+          type: number
+          description: >-
+            Scale factor fitted on the plant's own measured output against what
+            the weather implied for those hours. 1 when there was too little
+            history to fit.
+        calibrationSamples:
+          type: integer
+          description: Paired hours behind the calibration factor.
 
     Recommendation:
       type: object

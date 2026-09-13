@@ -2,6 +2,14 @@
 const { completeJson } = require('../llm/xaiClient');
 const logger = require('../../utils/logger');
 const notificationTool = require('../mcp-tools/notificationTool');
+const { ALERT_TYPE_BY_RISK, severityForRisk } = require('../forecast/riskWindows');
+
+/** Risk windows are read by operators working in IST. */
+function formatWindow(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'short' });
+}
 
 /**
  * Explainability Agent.
@@ -54,19 +62,24 @@ Output ONLY valid JSON — no markdown, no extra text:
   // ── Step 2: Raise alerts for risk windows (real runs only) ────────────────
   if (!simulationMode && forecast.riskWindows?.length > 0) {
     for (const rw of forecast.riskWindows) {
-      const alertTypeMap = {
-        over_generation:  'curtailment_risk',
-        under_generation: 'shortfall_risk',
-        operational_risk: 'sensor_fault',
-      };
-      const alertType = alertTypeMap[rw.type] || 'extreme_weather';
+      const alertType = ALERT_TYPE_BY_RISK[rw.type] || 'extreme_weather';
+
+      /*
+       * Severity comes from how far the window actually goes past its
+       * threshold, decided where the numbers are (see riskWindows.js). It used
+       * to be a coin-flip on the window type, which made every alert "high"
+       * and the console's severity filters decorative.
+       */
+      const severity = rw.severity || severityForRisk(rw);
 
       try {
         await notificationTool.handler({
           plantId:  plant._id.toString(),
-          severity: rw.type === 'operational_risk' ? 'high' : 'medium',
+          severity,
           type:     alertType,
-          message:  `${explanation.summary} Risk: ${rw.type} from ${rw.start} to ${rw.end}.`,
+          // The window's own detail, not the whole operator explanation —
+          // an alert is a headline and the rationale lives on the Decisions page.
+          message:  rw.detail || `${rw.type} expected from ${formatWindow(rw.start)} to ${formatWindow(rw.end)}.`,
         });
       } catch (err) {
         logger.error('[ExplainAgent] Failed to raise alert:', err.message);

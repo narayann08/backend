@@ -7,6 +7,7 @@ const logger = require('./utils/logger');
 const { initSocket } = require('./sockets/alertSocket');
 const { startForecastJob } = require('./jobs/scheduledForecastJob');
 const { startWeatherPullJob } = require('./jobs/scheduledWeatherPull');
+const { startTelemetryJob } = require('./jobs/scheduledTelemetryJob');
 
 async function start() {
   // Connect to MongoDB Atlas first
@@ -21,9 +22,14 @@ async function start() {
     logger.info(`FluxCast server running on port ${env.PORT} [${env.NODE_ENV}]`);
   });
 
-  // Start scheduled jobs
-  startForecastJob();
+  /*
+   * Background jobs. Each runs every 15 minutes and once at start-up, staggered
+   * so a cycle keeps its order: weather is pulled first, the telemetry reading
+   * is priced against it, and the forecast runs on both.
+   */
   startWeatherPullJob();
+  startTelemetryJob();
+  startForecastJob();
 
   // Graceful shutdown on SIGTERM (e.g. from Docker/k8s)
   process.on('SIGTERM', () => {

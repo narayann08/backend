@@ -20,6 +20,11 @@ const riskWindowSchema = new mongoose.Schema(
       type: String,
       enum: ['over_generation', 'under_generation', 'operational_risk'],
     },
+    /** How far past its threshold the window goes, and the grade that earns it. */
+    magnitudePct: Number,
+    severity:     { type: String, enum: ['low', 'medium', 'high'] },
+    hasOutage:    Boolean,
+    detail:       String,
   },
   { _id: false }
 );
@@ -31,6 +36,9 @@ const forecastResultSchema = new mongoose.Schema(
     horizonHours: { type: Number, enum: [24, 48, 72], default: 24 },
     points:       [forecastPointSchema],
     riskWindows:  [riskWindowSchema],
+    /** Scale factor fitted on this plant's own history, and the sample count behind it. */
+    calibrationFactor:  { type: Number },
+    calibrationSamples: { type: Number },
     jobId:        { type: String },
   },
   { timestamps: true }

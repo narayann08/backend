@@ -21,8 +21,12 @@ const { dispatchAlertEmail } = require('../../src/services/notifications/emailDi
 const notificationTool = require('../../src/services/mcp-tools/notificationTool');
 
 describe('notificationTool', () => {
+  /** No alert of this kind is open unless a test says otherwise. */
+  const noOpenAlert = () => Alert.findOne.mockReturnValue({ sort: () => ({ lean: async () => null }) });
+
   beforeEach(() => {
     jest.clearAllMocks();
+    noOpenAlert();
     Notification.create.mockResolvedValue({ _id: 'note1' });
     Plant.findById.mockReturnValue({ select: () => ({ lean: () => ({ name: 'Test Plant' }) }) });
     dispatchAlertEmail.mockResolvedValue({ status: 'skipped', detail: 'SMTP not configured in tests' });
@@ -83,5 +87,42 @@ describe('notificationTool', () => {
     await expect(
       notificationTool.handler({ plantId: 'p1', severity: 'low', type: 'sensor_fault', message: 'test' })
     ).rejects.toThrow('DB write failed');
+  });
+
+  it('does not raise a second alert while one of the same kind is still open', async () => {
+    Alert.findOne.mockReturnValue({
+      sort: () => ({ lean: async () => ({ _id: 'existing-alert', acknowledged: false }) }),
+    });
+
+    const result = await notificationTool.handler({
+      plantId:  'plant1',
+      severity: 'high',
+      type:     'sensor_fault',
+      message:  'Sensor fault detected',
+    });
+
+    expect(result).toEqual({ success: true, alertId: 'existing-alert', deduplicated: true });
+    expect(Alert.create).not.toHaveBeenCalled();
+    expect(emitAlert).not.toHaveBeenCalled();
+    expect(Notification.create).not.toHaveBeenCalled();
+  });
+
+  it('raises the alert again once the open one has been acknowledged', async () => {
+    // findOne filters on acknowledged: false, so an acknowledged alert is not found.
+    noOpenAlert();
+    Alert.create.mockResolvedValue({ _id: 'alert-2', createdAt: new Date() });
+
+    const result = await notificationTool.handler({
+      plantId:  'plant1',
+      severity: 'medium',
+      type:     'sensor_fault',
+      message:  'Sensor fault detected again',
+    });
+
+    expect(Alert.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ plantId: 'plant1', type: 'sensor_fault', acknowledged: false })
+    );
+    expect(Alert.create).toHaveBeenCalled();
+    expect(result.deduplicated).toBeUndefined();
   });
 });

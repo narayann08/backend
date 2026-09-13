@@ -174,7 +174,7 @@ export default function HistoryPage() {
                       {forecastHours === 0
                         ? 'Only measured output is plotted for this range.'
                         : `Only ${forecastHours} of ${points.length} hours in this range have a forecast to compare against, so the forecast line covers a small slice of the chart.`}{' '}
-                      Forecasts look forward, so the overlay fills in as the hourly forecast job
+                      Forecasts look forward, so the overlay fills in as the forecast job
                       keeps running and its predictions age into the window.
                     </p>
                   )}

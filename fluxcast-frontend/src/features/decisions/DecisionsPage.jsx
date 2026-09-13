@@ -43,7 +43,7 @@ export default function DecisionsPage() {
 
         {explanation.isError && explanation.error?.status === 404 && (
           <p className="text-sm text-ink-muted">
-            No explanation yet — one is produced with each hourly forecast run.
+            No explanation yet — one is produced with each forecast run.
           </p>
         )}
 

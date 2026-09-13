@@ -24,6 +24,14 @@ const weatherSnapshotSchema = new mongoose.Schema(
     source:      { type: String, default: 'open-meteo+nasa-power (reconciled)' },
     hourly:      [hourlyEntrySchema],
     generatedAt: { type: Date, default: Date.now },
+    /*
+     * True for weather that was recorded rather than predicted — hours already
+     * past, fetched to calibrate the generation model against stored telemetry.
+     * `generatedAt` on such a document is when it was *written*, not the period
+     * it covers, so anything answering "what are conditions now" must exclude
+     * these or it will serve last week's sky as the current one.
+     */
+    observed:    { type: Boolean, default: false, index: true },
   },
   { timestamps: true }
 );

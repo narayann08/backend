@@ -37,6 +37,24 @@ const notificationTool = {
    */
   async handler(input) {
     const { plantId, severity, type, message } = input;
+
+    /*
+     * The forecast job runs hourly and a risk window usually spans several
+     * hours, so the same condition is re-detected run after run. Without this
+     * check each detection became its own alert and the feed filled with
+     * identical rows — 48 of them, all reading "sensor fault", by the time
+     * anyone looked. One open alert per plant and condition is the useful
+     * signal; re-raising resumes once an operator acknowledges it.
+     */
+    const openAlert = await Alert.findOne({ plantId, type, acknowledged: false })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (openAlert) {
+      logger.info(`[notificationTool] ${type} already open for plant ${plantId} — not duplicating`);
+      return { success: true, alertId: openAlert._id, deduplicated: true };
+    }
+
     const alert = await Alert.create({ plantId, severity, type, message });
 
     // Push real-time notification to all connected dashboard clients

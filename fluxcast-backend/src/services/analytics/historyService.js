@@ -1,13 +1,25 @@
 'use strict';
 const Telemetry = require('../../models/Telemetry');
 const ForecastResult = require('../../models/ForecastResult');
+const { IST_OFFSET_MINUTES } = require('../../utils/istTime');
 
-/** Round a timestamp down to the top of its hour, so actuals and forecasts line up. */
+const HOUR_MS = 3600 * 1000;
+const IST_OFFSET_MS = IST_OFFSET_MINUTES * 60 * 1000;
+
+/*
+ * A forecast that runs the Indian grid is written on Indian hours, and IST is
+ * UTC+5:30 — so flooring to a UTC hour lands halfway through a local one. That
+ * put every row of this chart on a :30 boundary and pushed readings into the
+ * neighbouring bucket whenever the two feeds drifted. Bucket on IST hours and
+ * the series lines up with the day the operator is actually working in.
+ */
 function hourKey(date) {
-  const d = new Date(date);
-  d.setUTCMinutes(0, 0, 0);
-  return d.toISOString();
+  const local = new Date(date).getTime() + IST_OFFSET_MS;
+  return new Date(Math.floor(local / HOUR_MS) * HOUR_MS - IST_OFFSET_MS).toISOString();
 }
+
+/** The longest horizon the forecaster emits — bounds how far back runs matter. */
+const MAX_HORIZON_HOURS = 72;
 
 /**
  * Build the hourly forecast-vs-actual series for a plant over a date range.
@@ -26,7 +38,18 @@ async function buildHistorySeries(plantId, from, to) {
     Telemetry.find({ plantId, timestamp: { $gte: from, $lte: to } })
       .sort({ timestamp: 1 })
       .lean(),
-    ForecastResult.find({ plantId }).sort({ generatedAt: 1 }).lean(),
+    /*
+     * Only runs that could carry a point inside the window. The longest
+     * horizon is 72h, so a run started that far before `from` is the earliest
+     * one that can still reach it — anything older cannot, and loading the
+     * plant's entire forecast history to find out grows without bound.
+     */
+    ForecastResult.find({
+      plantId,
+      generatedAt: { $gte: new Date(from.getTime() - MAX_HORIZON_HOURS * HOUR_MS), $lte: to },
+    })
+      .sort({ generatedAt: 1 })
+      .lean(),
   ]);
 
   // ── Actuals: average each hour's readings ────────────────────────────────

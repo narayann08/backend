@@ -12,7 +12,8 @@
     "test": "jest --runInBand --forceExit --detectOpenHandles",
     "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
     "test:all": "node test_executor.js",
-    "mock:telemetry:catchup": "node src/scripts/catchUpTelemetry.js"
+    "mock:telemetry:catchup": "node src/scripts/catchUpTelemetry.js",
+    "weather:backfill": "node src/scripts/backfillObservedWeather.js"
   },
   "dependencies": {
     "axios": "^1.7.0",

@@ -2,6 +2,7 @@
 const Telemetry = require('../../models/Telemetry');
 const ForecastResult = require('../../models/ForecastResult');
 const WeatherSnapshot = require('../../models/WeatherSnapshot');
+const { impliedMW } = require('../forecast/generationModel');
 
 /** Deviation inside ±10% of the forecast counts as operating "as usual". */
 const USUAL_BAND_PCT = 10;
@@ -44,35 +45,16 @@ function nearestByTime(series, target) {
 }
 
 /**
- * Output the observed weather alone would imply, using the same turbine/panel
- * curves the Forecasting Agent is instructed to apply. Lets us say whether the
- * weather actually explains a deviation, instead of guessing from thresholds.
+ * Output the observed weather alone would imply, using the same curves the
+ * forecaster runs — one shared model, so "what the weather was worth" cannot
+ * mean two different things in two places.
  *
  * @param {object} plant
  * @param {object} weatherHour
  * @returns {number|null} Implied generation in MW
  */
 function weatherImpliedMW(plant, weatherHour) {
-  if (!weatherHour || !plant.capacityMW) return null;
-
-  if (plant.type === 'solar') {
-    const { ghiWm2, cloudCoverPct, temperatureC } = weatherHour;
-    if (typeof ghiWm2 !== 'number') return null;
-    if (ghiWm2 <= 0) return 0;
-    const cloudFactor = typeof cloudCoverPct === 'number' ? 1 - (cloudCoverPct / 100) * 0.7 : 1;
-    const tempFactor = typeof temperatureC === 'number' ? 1 - Math.max(0, temperatureC - 25) * 0.004 : 1;
-    return Math.max(0, plant.capacityMW * (ghiWm2 / 1000) * cloudFactor * tempFactor);
-  }
-
-  if (plant.type === 'wind') {
-    const v = weatherHour.windSpeedMs;
-    if (typeof v !== 'number') return null;
-    if (v < 3 || v > 25) return 0;
-    if (v <= 12) return plant.capacityMW * Math.pow((v - 3) / 9, 3);
-    return plant.capacityMW;
-  }
-
-  return null;
+  return impliedMW(plant, weatherHour);
 }
 
 /**
@@ -118,25 +100,25 @@ function deriveReasons({ plant, latest, weatherHour, classification, hasBaseline
   // Two independent questions, and both can be true at once:
   //   1. Did the weather come in worse than the forecast assumed?
   //   2. Is the plant delivering less than the current weather allows?
-  const impliedMW = weatherImpliedMW(plant, weatherHour);
+  const impliedNowMW = weatherImpliedMW(plant, weatherHour);
 
-  if (classification === 'lower' && impliedMW !== null) {
-    if (typeof expectedMW === 'number' && expectedMW > ZERO_MW_EPSILON && impliedMW < expectedMW * 0.85) {
+  if (classification === 'lower' && impliedNowMW !== null) {
+    if (typeof expectedMW === 'number' && expectedMW > ZERO_MW_EPSILON && impliedNowMW < expectedMW * 0.85) {
       reasons.push({
         code: 'weather_below_forecast_assumption',
         detail:
-          `Observed conditions support only about ${impliedMW.toFixed(1)} MW, ` +
+          `Observed conditions support only about ${impliedNowMW.toFixed(1)} MW, ` +
           `against the ${expectedMW.toFixed(1)} MW the forecast assumed — the weather came in worse than predicted.`,
         impact: 'high',
       });
     }
 
-    if (typeof actualMW === 'number' && impliedMW > ZERO_MW_EPSILON && actualMW < impliedMW * 0.85) {
+    if (typeof actualMW === 'number' && impliedNowMW > ZERO_MW_EPSILON && actualMW < impliedNowMW * 0.85) {
       reasons.push({
         code: 'output_below_weather_potential',
         detail:
           `The plant is producing ${actualMW.toFixed(1)} MW where current conditions support about ` +
-          `${impliedMW.toFixed(1)} MW — this gap is not explained by the weather, so check the equipment.`,
+          `${impliedNowMW.toFixed(1)} MW — this gap is not explained by the weather, so check the equipment.`,
         impact: 'high',
       });
     }
@@ -264,7 +246,7 @@ async function evaluatePlantPerformance(plant) {
   const [latest, forecast, snapshot] = await Promise.all([
     Telemetry.findOne({ plantId }).sort({ timestamp: -1 }).lean(),
     ForecastResult.findOne({ plantId }).sort({ generatedAt: -1 }).lean(),
-    WeatherSnapshot.findOne({ plantId }).sort({ generatedAt: -1 }).lean(),
+    WeatherSnapshot.findOne({ plantId, observed: { $ne: true } }).sort({ generatedAt: -1 }).lean(),
   ]);
 
   const referenceTime = latest?.timestamp ? new Date(latest.timestamp) : new Date();
